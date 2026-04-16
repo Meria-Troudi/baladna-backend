@@ -2,6 +2,7 @@ package tn.esprit.spring.baladna.transport.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import tn.esprit.spring.baladna.transport.dto.WeatherInfo;
 import tn.esprit.spring.baladna.transport.entity.Trajet;
 import tn.esprit.spring.baladna.transport.entity.Transport;
 import tn.esprit.spring.baladna.transport.entity.TransportStatus;
@@ -123,7 +124,7 @@ public class TransportService {
     public void deleteTransport(Long id, String hostEmail) {
         Transport transport = getTransportByIdForHost(id, hostEmail);
         if (transport == null) {
-            throw new RuntimeException("Transport non trouvé");
+            throw new RuntimeException("Transport non trouvÃ©");
         }
         transportRepository.delete(transport);
     }
@@ -135,7 +136,7 @@ public class TransportService {
 
     private Trajet requireOwnedTrajet(Long trajetId, String hostEmail) {
         return trajetRepository.findByIdAndHostEmail(trajetId, hostEmail)
-                .orElseThrow(() -> new RuntimeException("Le trajet sélectionné n'appartient pas à ce host"));
+                .orElseThrow(() -> new RuntimeException("Le trajet sÃ©lectionnÃ© n'appartient pas Ã  ce host"));
     }
 
     private void validateTransport(Transport transport) {
@@ -145,7 +146,7 @@ public class TransportService {
 
         if (transport.getTotalCapacity() != null && transport.getAvailableSeats() != null
                 && transport.getAvailableSeats() > transport.getTotalCapacity()) {
-            throw new RuntimeException("Les places disponibles ne peuvent pas dépasser la capacité totale");
+            throw new RuntimeException("Les places disponibles ne peuvent pas dÃ©passer la capacitÃ© totale");
         }
     }
 
@@ -154,12 +155,19 @@ public class TransportService {
         boolean autoWeather = weatherSource == null || weatherSource.isBlank() || "AUTO".equalsIgnoreCase(weatherSource);
 
         if (autoWeather) {
-            WeatherCondition detectedWeather = weatherService.getWeatherForDeparture(
+            WeatherInfo weatherInfo = weatherService.getWeatherForDeparture(
                     transport.getTrajet().getDepartureStation(),
                     transport.getDepartureDate()
-            ).getCondition();
+            );
 
-            transport.setWeather(detectedWeather != null ? detectedWeather : WeatherCondition.SUNNY);
+            transport.setWeather(
+                    weatherInfo.getCondition() != null
+                            ? weatherInfo.getCondition()
+                            : WeatherCondition.SUNNY
+            );
+            transport.setWeatherTemperature(weatherInfo.getTemperature());
+            transport.setWeatherWindSpeed(weatherInfo.getWindSpeed());
+            transport.setWeatherPrecipitation(weatherInfo.getPrecipitation());
             transport.setWeatherSource("AUTO");
             return;
         }

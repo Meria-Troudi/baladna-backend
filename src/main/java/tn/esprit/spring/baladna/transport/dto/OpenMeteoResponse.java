@@ -18,5 +18,8 @@ public class OpenMeteoResponse {
     public static class HourlyData {
         private List<String> time;
         private List<Integer> weather_code;
+        private List<Double> temperature_2m;
+        private List<Double> windspeed_10m;
+        private List<Double> precipitation;
     }
 }

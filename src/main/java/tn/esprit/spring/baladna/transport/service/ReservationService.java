@@ -64,19 +64,19 @@ public class ReservationService {
         User user = userRepository.findByEmail(userEmail).orElse(null);
 
         if (transport == null) {
-            throw new RuntimeException("Transport non trouvé");
+            throw new RuntimeException("Transport non trouvï¿½");
         }
 
         if (user == null) {
-            throw new RuntimeException("Utilisateur non trouvé");
+            throw new RuntimeException("Utilisateur non trouvï¿½");
         }
 
         if (transport.getDepartureDate() == null || !transport.getDepartureDate().isAfter(LocalDateTime.now())) {
-            throw new RuntimeException("Impossible de réserver un transport déjà passé ou en cours");
+            throw new RuntimeException("Impossible de rï¿½server un transport dï¿½jï¿½ passï¿½ ou en cours");
         }
 
         if (transport.getStatus() == TransportStatus.CANCELLED) {
-            throw new RuntimeException("Ce transport est annulé");
+            throw new RuntimeException("Ce transport est annulï¿½");
         }
 
         if (transport.getAvailableSeats() == null || transport.getAvailableSeats() < seatsCount) {
@@ -86,13 +86,12 @@ public class ReservationService {
         if (!transport.checkWeatherConditions()) {
             transport.setStatus(TransportStatus.CANCELLED);
             transportRepository.save(transport);
-            throw new RuntimeException("Départ annulé à cause de la météo");
+            throw new RuntimeException("Dï¿½part annulï¿½ ï¿½ cause de la mï¿½tï¿½o");
         }
 
         int lastSeatsCount = transport.getAvailableSeats();
         double pricePerSeat = transport.calculatePrice(boardingPoint, lastSeatsCount);
-        double totalPrice = pricePerSeat * seatsCount;
-
+        double totalPrice = Math.round(pricePerSeat * seatsCount * 100.0) / 100.0;
         Reservation reservation = Reservation.builder()
                 .reservedSeats(seatsCount)
                 .totalPrice(totalPrice)
@@ -114,15 +113,15 @@ public class ReservationService {
         Reservation reservation = getReservationById(id);
 
         if (reservation == null) {
-            throw new RuntimeException("Réservation non trouvée");
+            throw new RuntimeException("Rï¿½servation non trouvï¿½e");
         }
 
         if (!reservation.getUser().getEmail().equals(userEmail)) {
-            throw new RuntimeException("Vous ne pouvez annuler que vos propres réservations");
+            throw new RuntimeException("Vous ne pouvez annuler que vos propres rï¿½servations");
         }
 
         if (reservation.getStatus() == ReservationStatus.CANCELLED) {
-            throw new RuntimeException("Cette réservation est déjà annulée");
+            throw new RuntimeException("Cette rï¿½servation est dï¿½jï¿½ annulï¿½e");
         }
 
         reservation.cancel();
@@ -139,7 +138,7 @@ public class ReservationService {
         Reservation reservation = getReservationByIdForHost(id, hostEmail);
 
         if (reservation == null) {
-            throw new RuntimeException("Réservation non trouvée");
+            throw new RuntimeException("Rï¿½servation non trouvï¿½e");
         }
 
         if (reservation.getStatus() != ReservationStatus.CANCELLED) {
