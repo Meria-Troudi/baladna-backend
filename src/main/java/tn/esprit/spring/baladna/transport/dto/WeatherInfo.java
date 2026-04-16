@@ -13,4 +13,7 @@ import tn.esprit.spring.baladna.transport.entity.WeatherCondition;
 public class WeatherInfo {
     private Integer weatherCode;
     private WeatherCondition condition;
+    private Double temperature;      // °C
+    private Double windSpeed;        // km/h
+    private Double precipitation;    // mm
 }

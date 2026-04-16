@@ -36,6 +36,9 @@ public class TransportController {
                 .trafficJam(transport.getTrafficJam())
                 .weather(transport.getWeather())
                 .weatherSource(transport.getWeatherSource())
+                .weatherTemperature(transport.getWeatherTemperature())
+                .weatherWindSpeed(transport.getWeatherWindSpeed())
+                .weatherPrecipitation(transport.getWeatherPrecipitation())
                 .delayMinutes(transport.calculateDelay())
                 .trajetId(transport.getTrajet().getId())
                 .trajetDescription(
