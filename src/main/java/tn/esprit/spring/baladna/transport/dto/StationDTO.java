@@ -29,4 +29,14 @@ public class StationDTO {
 
     @NotNull(message = "Le champ downtown est obligatoire")
     private Boolean downtown;
+
+    @NotNull(message = "La latitude est obligatoire")
+    @DecimalMin(value = "-90.0", message = "La latitude doit etre >= -90")
+    @DecimalMax(value = "90.0", message = "La latitude doit etre <= 90")
+    private Double latitude;
+
+    @NotNull(message = "La longitude est obligatoire")
+    @DecimalMin(value = "-180.0", message = "La longitude doit etre >= -180")
+    @DecimalMax(value = "180.0", message = "La longitude doit etre <= 180")
+    private Double longitude;
 }

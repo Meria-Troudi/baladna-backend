@@ -21,8 +21,24 @@ public interface StationRepository extends JpaRepository<Station, Long> {
 
     Optional<Station> findByName(String name);
 
+    Optional<Station> findByIdAndHostEmail(Long id, String email);
+
+    List<Station> findByHostEmailOrderByCityAscNameAsc(String email);
+
     boolean existsByNameAndCity(String name, String city);
 
-    @Query("SELECT s FROM Station s WHERE LOWER(s.name) LIKE LOWER(CONCAT('%', :name, '%'))")
-    List<Station> searchByName(String name);
+    boolean existsByNameAndCityAndHostEmail(String name, String city, String email);
+
+    boolean existsByNameAndCityAndIdNot(String name, String city, Long id);
+
+    boolean existsByNameAndCityAndIdNotAndHostEmail(String name, String city, Long id, String email);
+
+    @Query("""
+            SELECT s
+            FROM Station s
+            WHERE LOWER(s.name) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(s.city) LIKE LOWER(CONCAT('%', :query, '%'))
+            ORDER BY s.city ASC, s.name ASC
+            """)
+    List<Station> searchByNameOrCity(String query);
 }

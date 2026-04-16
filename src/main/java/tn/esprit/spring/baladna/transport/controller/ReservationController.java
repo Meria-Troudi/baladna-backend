@@ -7,8 +7,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import tn.esprit.spring.baladna.transport.dto.ReservationDTO;
 import tn.esprit.spring.baladna.transport.dto.ReservationRequestDTO;
+import tn.esprit.spring.baladna.transport.dto.ReservationTicketValidationRequestDTO;
+import tn.esprit.spring.baladna.transport.dto.ReservationTicketValidationResponseDTO;
 import tn.esprit.spring.baladna.transport.entity.Reservation;
 import tn.esprit.spring.baladna.transport.service.ReservationService;
+import tn.esprit.spring.baladna.transport.service.ReservationTicketService;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,10 +23,12 @@ import java.util.stream.Collectors;
 public class ReservationController {
 
     private final ReservationService reservationService;
+    private final ReservationTicketService reservationTicketService;
 
     private ReservationDTO toDTO(Reservation reservation) {
         return ReservationDTO.builder()
                 .id(reservation.getId())
+                .ticketCode(reservationTicketService.generateTicketCode(reservation))
                 .reservedSeats(reservation.getReservedSeats())
                 .totalPrice(reservation.getTotalPrice())
                 .pricePerSeat(reservation.getPricePerSeat())
@@ -34,7 +39,7 @@ public class ReservationController {
                 .transportDeparturePoint(reservation.getTransport().getDeparturePoint())
                 .transportRoute(
                         reservation.getTransport().getTrajet().getDepartureStation().getName()
-                                + " → " +
+                                + " -> " +
                                 reservation.getTransport().getTrajet().getArrivalStation().getName()
                 )
                 .userId(reservation.getUser().getId())
@@ -43,31 +48,27 @@ public class ReservationController {
                 .build();
     }
 
-    // HOST
     @GetMapping
-    public List<ReservationDTO> getAllReservations() {
-        return reservationService.getAllReservations().stream()
+    public List<ReservationDTO> getAllReservations(Authentication authentication) {
+        return reservationService.getReservationsForHost(authentication.getName()).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
-    // HOST
     @GetMapping("/{id}")
-    public ResponseEntity<ReservationDTO> getReservationById(@PathVariable Long id) {
-        Reservation reservation = reservationService.getReservationById(id);
+    public ResponseEntity<ReservationDTO> getReservationById(@PathVariable Long id, Authentication authentication) {
+        Reservation reservation = reservationService.getReservationByIdForHost(id, authentication.getName());
         if (reservation == null) return ResponseEntity.notFound().build();
         return ResponseEntity.ok(toDTO(reservation));
     }
 
-    // HOST
     @GetMapping("/transport/{transportId}")
-    public List<ReservationDTO> getReservationsByTransport(@PathVariable Long transportId) {
-        return reservationService.getReservationsByTransport(transportId).stream()
+    public List<ReservationDTO> getReservationsByTransport(@PathVariable Long transportId, Authentication authentication) {
+        return reservationService.getReservationsByTransportForHost(transportId, authentication.getName()).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
-    // TOURIST
     @GetMapping("/me")
     public List<ReservationDTO> getMyReservations(Authentication authentication) {
         String userEmail = authentication.getName();
@@ -76,7 +77,6 @@ public class ReservationController {
                 .collect(Collectors.toList());
     }
 
-    // TOURIST
     @PostMapping
     public ResponseEntity<?> makeReservation(@Valid @RequestBody ReservationRequestDTO request,
                                              Authentication authentication) {
@@ -96,7 +96,6 @@ public class ReservationController {
         }
     }
 
-    // TOURIST
     @PutMapping("/{id}/cancel")
     public ResponseEntity<?> cancelReservation(@PathVariable Long id, Authentication authentication) {
         try {
@@ -108,10 +107,24 @@ public class ReservationController {
         }
     }
 
-    // HOST
+    @PostMapping("/validate-ticket")
+    public ResponseEntity<ReservationTicketValidationResponseDTO> validateTicket(
+            @Valid @RequestBody ReservationTicketValidationRequestDTO request,
+            Authentication authentication
+    ) {
+        ReservationTicketValidationResponseDTO response = reservationTicketService.validateTicketCode(
+                request.getTicketCode(),
+                authentication.getName()
+        );
+        if (response.isValid()) {
+            return ResponseEntity.ok(response);
+        }
+        return ResponseEntity.badRequest().body(response);
+    }
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteReservation(@PathVariable Long id) {
-        reservationService.deleteReservation(id);
+    public ResponseEntity<Void> deleteReservation(@PathVariable Long id, Authentication authentication) {
+        reservationService.deleteReservation(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 }

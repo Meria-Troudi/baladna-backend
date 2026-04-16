@@ -27,8 +27,16 @@ public class ReservationService {
         return reservationRepository.findAll();
     }
 
+    public List<Reservation> getReservationsForHost(String hostEmail) {
+        return reservationRepository.findByTransportHostEmail(hostEmail);
+    }
+
     public Reservation getReservationById(Long id) {
         return reservationRepository.findById(id).orElse(null);
+    }
+
+    public Reservation getReservationByIdForHost(Long id, String hostEmail) {
+        return reservationRepository.findByIdAndTransportHostEmail(id, hostEmail).orElse(null);
     }
 
     public List<Reservation> getReservationsByUser(Long userId) {
@@ -45,6 +53,10 @@ public class ReservationService {
         return reservationRepository.findByTransportId(transportId);
     }
 
+    public List<Reservation> getReservationsByTransportForHost(Long transportId, String hostEmail) {
+        return reservationRepository.findByTransportIdAndTransportHostEmail(transportId, hostEmail);
+    }
+
     @Transactional
     public Reservation makeReservation(Long transportId, String userEmail, String boardingPoint, Integer seatsCount) {
 
@@ -52,19 +64,19 @@ public class ReservationService {
         User user = userRepository.findByEmail(userEmail).orElse(null);
 
         if (transport == null) {
-            throw new RuntimeException("Transport non trouv√©");
+            throw new RuntimeException("Transport non trouvÈ");
         }
 
         if (user == null) {
-            throw new RuntimeException("Utilisateur non trouv√©");
+            throw new RuntimeException("Utilisateur non trouvÈ");
         }
 
         if (transport.getDepartureDate() == null || !transport.getDepartureDate().isAfter(LocalDateTime.now())) {
-            throw new RuntimeException("Impossible de r√©server un transport d√©j√† pass√© ou en cours");
+            throw new RuntimeException("Impossible de rÈserver un transport dÈj‡ passÈ ou en cours");
         }
 
         if (transport.getStatus() == TransportStatus.CANCELLED) {
-            throw new RuntimeException("Ce transport est annul√©");
+            throw new RuntimeException("Ce transport est annulÈ");
         }
 
         if (transport.getAvailableSeats() == null || transport.getAvailableSeats() < seatsCount) {
@@ -74,7 +86,7 @@ public class ReservationService {
         if (!transport.checkWeatherConditions()) {
             transport.setStatus(TransportStatus.CANCELLED);
             transportRepository.save(transport);
-            throw new RuntimeException("D√©part annul√© √† cause de la m√©t√©o");
+            throw new RuntimeException("DÈpart annulÈ ‡ cause de la mÈtÈo");
         }
 
         int lastSeatsCount = transport.getAvailableSeats();
@@ -102,15 +114,15 @@ public class ReservationService {
         Reservation reservation = getReservationById(id);
 
         if (reservation == null) {
-            throw new RuntimeException("R√©servation non trouv√©e");
+            throw new RuntimeException("RÈservation non trouvÈe");
         }
 
         if (!reservation.getUser().getEmail().equals(userEmail)) {
-            throw new RuntimeException("Vous ne pouvez annuler que vos propres r√©servations");
+            throw new RuntimeException("Vous ne pouvez annuler que vos propres rÈservations");
         }
 
         if (reservation.getStatus() == ReservationStatus.CANCELLED) {
-            throw new RuntimeException("Cette r√©servation est d√©j√† annul√©e");
+            throw new RuntimeException("Cette rÈservation est dÈj‡ annulÈe");
         }
 
         reservation.cancel();
@@ -123,11 +135,11 @@ public class ReservationService {
     }
 
     @Transactional
-    public void deleteReservation(Long id) {
-        Reservation reservation = getReservationById(id);
+    public void deleteReservation(Long id, String hostEmail) {
+        Reservation reservation = getReservationByIdForHost(id, hostEmail);
 
         if (reservation == null) {
-            throw new RuntimeException("R√©servation non trouv√©e");
+            throw new RuntimeException("RÈservation non trouvÈe");
         }
 
         if (reservation.getStatus() != ReservationStatus.CANCELLED) {

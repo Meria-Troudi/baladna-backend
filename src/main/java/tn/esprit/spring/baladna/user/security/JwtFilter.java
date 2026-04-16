@@ -29,7 +29,9 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-        return path.startsWith("/api/auth") || path.startsWith("/api/events");
+        return path.startsWith("/api/auth")
+                || path.startsWith("/api/events")
+                || "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
 
     @Override
@@ -42,7 +44,7 @@ public class JwtFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader("Authorization");
         log.info("Request to: {} - Auth header: {}", request.getRequestURI(), authHeader != null ? "present" : "null");
 
-        if(authHeader == null || !authHeader.startsWith("Bearer ")){
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             log.warn("No Bearer token found");
             filterChain.doFilter(request, response);
             return;
@@ -55,9 +57,7 @@ public class JwtFilter extends OncePerRequestFilter {
             String email = jwtService.extractEmail(token);
             log.info("Email extracted from token: {}", email);
 
-            if(email != null &&
-                    SecurityContextHolder.getContext().getAuthentication() == null){
-
+            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 User user = userRepo.findByEmail(email).orElseThrow();
                 log.info("User found: {} with role: {}", user.getEmail(), user.getRole());
 

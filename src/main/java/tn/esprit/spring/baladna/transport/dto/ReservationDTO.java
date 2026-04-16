@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 public class ReservationDTO {
 
     private Long id;
+    private String ticketCode;
     private Integer reservedSeats;
     private Double totalPrice;
     private Double pricePerSeat;

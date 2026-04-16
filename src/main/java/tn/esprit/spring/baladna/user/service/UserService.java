@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -29,21 +28,18 @@ public class UserService {
     private final PasswordEncoder encoder;
     private final SessionRepository sessionRepo;
 
-    // ✅ ADMIN - Liste tous les users
-    //public List<User> getAllUsers() {
-        //return userRepo.findAll();
-   // }
+    // ADMIN - Liste tous les users
     public List<User> getAllUsers() {
         return userRepo.findByStatusNot(Status.DELETED);
     }
 
-    // ✅ ADMIN - Détail d'un user
+    // ADMIN - Détail d'un user
     public User getUserById(Long id) {
         return userRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
-    // ✅ ADMIN - Changer le status (ACTIVE / SUSPENDED / DELETED)
+    // ADMIN - Changer le status (ACTIVE / SUSPENDED / DELETED)
     public User updateStatus(Long id, UpdateStatusRequest request) {
         User user = getUserById(id);
         user.setStatus(request.getStatus());
@@ -51,7 +47,7 @@ public class UserService {
         return userRepo.save(user);
     }
 
-    // ✅ ADMIN - Changer le rôle
+    // ADMIN - Changer le rôle
     public User updateRole(Long id, UpdateRoleRequest request) {
         User user = getUserById(id);
         user.setRole(request.getRole());
@@ -59,22 +55,23 @@ public class UserService {
         return userRepo.save(user);
     }
 
-    // ✅ ADMIN - Soft delete
+    // ADMIN - Soft delete
     public void deleteUser(Long id) {
         User user = getUserById(id);
         user.setStatus(Status.DELETED);
         logService.log("DELETED", user);
         userRepo.save(user);
     }
+
     @Transactional
     public void hardDeleteUser(Long id) {
         User user = getUserById(id);
 
-        // ✅ supprimer d'abord les données liées
+        // supprimer d'abord les données liées
         sessionRepo.deleteAllByUser(user);
         logRepo.deleteAllByUser(user);
 
-        // ✅ ensuite supprimer le user
+        // ensuite supprimer le user
         userRepo.delete(user);
     }
 
@@ -82,13 +79,13 @@ public class UserService {
         return userRepo.findAll();
     }
 
-    // ✅ USER - Voir son profil
+    // USER - Voir son profil
     public User getMyProfile(String email) {
         return userRepo.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
-    // ✅ USER - Modifier son profil
+    // USER - Modifier son profil
     public User updateMyProfile(String email, UpdateProfileRequest request) {
         User user = getMyProfile(email);
 
@@ -101,7 +98,7 @@ public class UserService {
         return userRepo.save(user);
     }
 
-    // ✅ USER - Voir son activity log
+    // USER - Voir son activity log
     public List<ActivityLog> getMyActivity(String email) {
         User user = getMyProfile(email);
         return logRepo.findByUserOrderByTimestampDesc(user);
@@ -122,12 +119,13 @@ public class UserService {
         return userRepo.findByFirstNameContainingOrLastNameContaining(keyword, keyword);
     }
 
-    //chnager mdp
+    // Changer mdp
     public void changePassword(String email, ChangePasswordRequest request) {
         User user = getMyProfile(email);
 
-        if (!encoder.matches(request.getOldPassword(), user.getPassword()))
+        if (!encoder.matches(request.getOldPassword(), user.getPassword())) {
             throw new RuntimeException("Ancien mot de passe incorrect");
+        }
 
         user.setPassword(encoder.encode(request.getNewPassword()));
         logService.log("PASSWORD_CHANGED", user);
@@ -144,7 +142,6 @@ public class UserService {
         User user = getMyProfile(email);
         sessionRepo.deleteAllByUser(user);
         logService.log("LOGOUT_ALL_SESSIONS", user);
-
     }
 
     public Map<String, Long> getUserStats() {
@@ -153,6 +150,7 @@ public class UserService {
         stats.put("tourists", userRepo.countByRole(Role.TOURIST));
         stats.put("hosts", userRepo.countByRole(Role.HOST));
         stats.put("admins", userRepo.countByRole(Role.ADMIN));
+        stats.put("artisans", userRepo.countByRole(Role.ARTISAN));
         stats.put("active", userRepo.countByStatus(Status.ACTIVE));
         stats.put("suspended", userRepo.countByStatus(Status.SUSPENDED));
         stats.put("deleted", userRepo.countByStatus(Status.DELETED));

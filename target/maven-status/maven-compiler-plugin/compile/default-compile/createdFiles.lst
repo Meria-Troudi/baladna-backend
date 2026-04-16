@@ -17,6 +17,7 @@ tn\esprit\spring\baladna\event\service\IEventMediaService.class
 tn\esprit\spring\baladna\transport\controller\TransportController.class
 tn\esprit\spring\baladna\transport\entity\Trajet.class
 tn\esprit\spring\baladna\event\entity\EventForumPost$EventForumPostBuilder.class
+tn\esprit\spring\baladna\transport\dto\RoutePreviewDTO$RoutePreviewDTOBuilder.class
 tn\esprit\spring\baladna\event\entity\EventReservation$EventReservationBuilder.class
 tn\esprit\spring\baladna\event\entity\EventReview.class
 tn\esprit\spring\baladna\event\dto\EventForumPostDTO.class
@@ -35,6 +36,7 @@ tn\esprit\spring\baladna\event\service\impl\EventReservationServiceImpl.class
 tn\esprit\spring\baladna\transport\dto\TrajetDTO$TrajetDTOBuilder.class
 tn\esprit\spring\baladna\user\repository\UserRepository.class
 tn\esprit\spring\baladna\event\entity\EventCategory.class
+tn\esprit\spring\baladna\transport\dto\GeoLocationDTO.class
 tn\esprit\spring\baladna\event\entity\Event$EventBuilder.class
 tn\esprit\spring\baladna\transport\entity\Station$StationBuilder.class
 tn\esprit\spring\baladna\transport\entity\TransportStatus.class
@@ -90,6 +92,7 @@ tn\esprit\spring\baladna\user\dto\AuthResponse.class
 tn\esprit\spring\baladna\transport\repository\TrajetRepository.class
 tn\esprit\spring\baladna\event\service\impl\EventForumPostServiceImpl.class
 tn\esprit\spring\baladna\event\service\EventService.class
+tn\esprit\spring\baladna\transport\service\GeocodingService.class
 tn\esprit\spring\baladna\user\dto\UpdateProfileRequest.class
 tn\esprit\spring\baladna\event\dto\EventForumPostDTO$EventForumPostDTOBuilder.class
 tn\esprit\spring\baladna\user\security\SecurityBeans.class
@@ -117,6 +120,7 @@ tn\esprit\spring\baladna\event\repository\EventMediaRepository.class
 tn\esprit\spring\baladna\event\service\impl\EventForumNotificationServiceImpl.class
 tn\esprit\spring\baladna\event\service\IEventForumNotificationService.class
 tn\esprit\spring\baladna\user\dto\ChangePasswordRequest.class
+tn\esprit\spring\baladna\transport\dto\GeoLocationDTO$GeoLocationDTOBuilder.class
 tn\esprit\spring\baladna\transport\entity\Trajet$TrajetBuilder.class
 tn\esprit\spring\baladna\user\dto\RegisterRequest.class
 tn\esprit\spring\baladna\transport\controller\TrajetController.class
@@ -134,3 +138,4 @@ tn\esprit\spring\baladna\transport\entity\Transport$TransportBuilder.class
 tn\esprit\spring\baladna\event\dto\EventDTO.class
 tn\esprit\spring\baladna\event\entity\EventForumNotification.class
 tn\esprit\spring\baladna\user\dto\RefreshRequest.class
+tn\esprit\spring\baladna\transport\dto\RoutePreviewDTO.class

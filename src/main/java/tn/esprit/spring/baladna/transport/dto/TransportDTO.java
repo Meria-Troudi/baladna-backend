@@ -43,6 +43,8 @@ public class TransportDTO {
     @NotNull(message = "La condition météo est obligatoire")
     private WeatherCondition weather;
 
+    private String weatherSource;
+
     @NotNull(message = "L'ID du trajet est obligatoire")
     @Positive(message = "L'ID du trajet doit être positif")
     private Long trajetId;

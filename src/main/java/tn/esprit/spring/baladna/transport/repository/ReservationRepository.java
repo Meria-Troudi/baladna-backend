@@ -8,6 +8,7 @@ import tn.esprit.spring.baladna.transport.entity.ReservationStatus;
 import tn.esprit.spring.baladna.user.entity.User;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
@@ -17,6 +18,12 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Reservation> findByUserEmail(String email);
 
     List<Reservation> findByTransportId(Long transportId);
+
+    List<Reservation> findByTransportIdAndTransportHostEmail(Long transportId, String email);
+
+    List<Reservation> findByTransportHostEmail(String email);
+
+    Optional<Reservation> findByIdAndTransportHostEmail(Long id, String email);
 
     List<Reservation> findByStatus(ReservationStatus status);
 

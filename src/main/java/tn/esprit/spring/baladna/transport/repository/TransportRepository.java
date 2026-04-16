@@ -8,6 +8,7 @@ import tn.esprit.spring.baladna.transport.entity.TransportStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TransportRepository extends JpaRepository<Transport, Long> {
@@ -20,11 +21,26 @@ public interface TransportRepository extends JpaRepository<Transport, Long> {
 
     List<Transport> findByTrajetId(Long trajetId);
 
+    List<Transport> findByTrajetIdAndHostEmail(Long trajetId, String email);
+
+    Optional<Transport> findByIdAndHostEmail(Long id, String email);
+
+    List<Transport> findByHostEmailOrderByDepartureDateDesc(String email);
+
     @Query("SELECT t FROM Transport t WHERE t.departureDate > :now AND t.availableSeats > 0 AND t.status <> 'CANCELLED'")
     List<Transport> findAvailableTransports(LocalDateTime now);
+
+    @Query("SELECT t FROM Transport t WHERE t.host.email = :email AND t.departureDate > :now AND t.availableSeats > 0 AND t.status <> 'CANCELLED'")
+    List<Transport> findAvailableTransportsByHost(String email, LocalDateTime now);
 
     @Query("SELECT t FROM Transport t " +
             "WHERE LOWER(t.trajet.departureStation.city) = LOWER(:departureCity) " +
             "AND LOWER(t.trajet.arrivalStation.city) = LOWER(:arrivalCity)")
     List<Transport> findTransportsByCities(String departureCity, String arrivalCity);
+
+    @Query("SELECT t FROM Transport t " +
+            "WHERE t.host.email = :email " +
+            "AND LOWER(t.trajet.departureStation.city) = LOWER(:departureCity) " +
+            "AND LOWER(t.trajet.arrivalStation.city) = LOWER(:arrivalCity)")
+    List<Transport> findTransportsByCitiesAndHost(String departureCity, String arrivalCity, String email);
 }

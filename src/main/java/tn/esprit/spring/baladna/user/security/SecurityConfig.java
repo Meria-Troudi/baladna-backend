@@ -33,44 +33,41 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
 
-                        // SWAGGER
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-
-                        // AUTH
                         .requestMatchers("/api/auth/**").permitAll()
-
-                        // PROFILE
+                        .requestMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
+                        .requestMatchers("/api/events/**").permitAll()
                         .requestMatchers("/api/profile/**").authenticated()
 
-                        // STATIONS
+                        .requestMatchers("/api/users/**").hasRole("ADMIN")
+                        .requestMatchers("/api/dashboard-admin/**").hasRole("ADMIN")
+
+                        .requestMatchers("/api/artisan/**").hasRole("ARTISAN")
+
                         .requestMatchers(HttpMethod.GET, "/api/stations/**").hasAnyRole("HOST", "TOURIST")
                         .requestMatchers(HttpMethod.POST, "/api/stations/**").hasRole("HOST")
                         .requestMatchers(HttpMethod.PUT, "/api/stations/**").hasRole("HOST")
                         .requestMatchers(HttpMethod.DELETE, "/api/stations/**").hasRole("HOST")
 
-                        // TRAJETS
                         .requestMatchers(HttpMethod.GET, "/api/trajets/**").hasAnyRole("HOST", "TOURIST")
                         .requestMatchers(HttpMethod.POST, "/api/trajets/**").hasRole("HOST")
                         .requestMatchers(HttpMethod.PUT, "/api/trajets/**").hasRole("HOST")
                         .requestMatchers(HttpMethod.DELETE, "/api/trajets/**").hasRole("HOST")
 
-                        // TRANSPORTS
                         .requestMatchers(HttpMethod.GET, "/api/transports/**").hasAnyRole("HOST", "TOURIST")
                         .requestMatchers(HttpMethod.POST, "/api/transports/**").hasRole("HOST")
                         .requestMatchers(HttpMethod.PUT, "/api/transports/**").hasRole("HOST")
                         .requestMatchers(HttpMethod.DELETE, "/api/transports/**").hasRole("HOST")
 
-                        // RESERVATIONS
-                        // TOURIST
                         .requestMatchers(HttpMethod.GET, "/api/reservations/me").hasRole("TOURIST")
                         .requestMatchers(HttpMethod.POST, "/api/reservations").hasRole("TOURIST")
                         .requestMatchers(HttpMethod.PUT, "/api/reservations/*/cancel").hasRole("TOURIST")
 
-                        // HOST
+                        .requestMatchers(HttpMethod.POST, "/api/reservations/validate-ticket").hasRole("HOST")
                         .requestMatchers(HttpMethod.GET, "/api/reservations/**").hasRole("HOST")
                         .requestMatchers(HttpMethod.DELETE, "/api/reservations/**").hasRole("HOST")
 
-                        // tout le reste
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
@@ -82,7 +79,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(List.of("http://localhost:4200", "http://localhost:8081"));
+        config.setAllowedOrigins(List.of(
+                "http://localhost:4200"
+        ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
