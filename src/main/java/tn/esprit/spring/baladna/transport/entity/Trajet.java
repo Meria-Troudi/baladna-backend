@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
+import tn.esprit.spring.baladna.user.entity.User;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,30 +22,39 @@ public class Trajet {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotNull(message = "La station de dÃ©part est obligatoire")
+    @NotNull(message = "La station de départ est obligatoire")
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "departure_station_id", nullable = false)
     private Station departureStation;
 
-    @NotNull(message = "La station d'arrivÃ©e est obligatoire")
+    @NotNull(message = "La station d'arrivée est obligatoire")
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "arrival_station_id", nullable = false)
     private Station arrivalStation;
 
     @NotNull(message = "La distance est obligatoire")
-    @DecimalMin(value = "1.0", message = "La distance doit Ãªtre >= 1")
-    @DecimalMax(value = "1000.0", message = "La distance doit Ãªtre <= 1000")
+    @DecimalMin(value = "1.0", message = "La distance doit être >= 1")
+    @DecimalMax(value = "1000.0", message = "La distance doit être <= 1000")
     private Double distanceKm;
 
-    @NotNull(message = "La durÃ©e estimÃ©e est obligatoire")
-    @Positive(message = "La durÃ©e doit Ãªtre positive")
-    @Min(value = 1, message = "La durÃ©e doit Ãªtre au moins 1 minute")
+    @NotNull(message = "La durée estimée est obligatoire")
+    @Positive(message = "La durée doit être positive")
+    @Min(value = 1, message = "La durée doit être au moins 1 minute")
     private Integer estimatedDurationMinutes;
 
     @NotNull(message = "Le prix par km est obligatoire")
-    @DecimalMin(value = "0.01", message = "Le prix par km doit Ãªtre >= 0.01")
-    @DecimalMax(value = "10.0", message = "Le prix par km doit Ãªtre <= 10")
+    @DecimalMin(value = "0.01", message = "Le prix par km doit être >= 0.01")
+    @DecimalMax(value = "10.0", message = "Le prix par km doit être <= 10")
     private Double pricePerKm;
+
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String routeGeoJson;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "host_id")
+    @JsonIgnore
+    private User host;
 
     @OneToMany(mappedBy = "trajet", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
@@ -56,7 +66,7 @@ public class Trajet {
         return distanceKm * pricePerKm;
     }
 
-    @AssertTrue(message = "La station de dÃ©part doit Ãªtre diffÃ©rente de la station d'arrivÃ©e")
+    @AssertTrue(message = "La station de départ doit être différente de la station d'arrivée")
     public boolean isDifferentStations() {
         if (departureStation == null || arrivalStation == null) return true;
         if (departureStation.getId() == null || arrivalStation.getId() == null) return true;

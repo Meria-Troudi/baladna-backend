@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
+import tn.esprit.spring.baladna.user.entity.User;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -22,20 +23,20 @@ public class Transport {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Le point de dÃ©part est obligatoire")
-    @Size(min = 2, max = 150, message = "Le point de dÃ©part doit contenir entre 2 et 150 caractÃ¨res")
+    @NotBlank(message = "Le point de départ est obligatoire")
+    @Size(min = 2, max = 150, message = "Le point de départ doit contenir entre 2 et 150 caractères")
     @Column(nullable = false)
     private String departurePoint;
 
-    @NotNull(message = "La date de dÃ©part est obligatoire")
-    @Future(message = "La date doit Ãªtre dans le futur")
+    @NotNull(message = "La date de départ est obligatoire")
+    @Future(message = "La date doit être dans le futur")
     @Column(nullable = false)
     private LocalDateTime departureDate;
 
-    @NotNull(message = "La capacitÃ© totale est obligatoire")
-    @Positive(message = "La capacitÃ© doit Ãªtre positive")
-    @Min(value = 1, message = "La capacitÃ© minimale est 1")
-    @Max(value = 100, message = "La capacitÃ© maximale est 100")
+    @NotNull(message = "La capacité totale est obligatoire")
+    @Positive(message = "La capacité doit être positive")
+    @Min(value = 1, message = "La capacité minimale est 1")
+    @Max(value = 100, message = "La capacité maximale est 100")
     @Column(nullable = false)
     private Integer totalCapacity;
 
@@ -48,7 +49,7 @@ public class Transport {
     private TransportStatus status;
 
     @NotNull(message = "Le prix de base est obligatoire")
-    @Positive(message = "Le prix de base doit Ãªtre positif")
+    @Positive(message = "Le prix de base doit être positif")
     @Column(nullable = false)
     private Double basePrice;
 
@@ -56,15 +57,24 @@ public class Transport {
     @Column(nullable = false)
     private Boolean trafficJam = false;
 
-    @NotNull(message = "La condition mÃ©tÃ©o est obligatoire")
+    @NotNull(message = "La condition météo est obligatoire")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private WeatherCondition weather;
+
+    @Builder.Default
+    @Column(nullable = false, length = 20)
+    private String weatherSource = "MANUAL";
 
     @NotNull(message = "Le trajet est obligatoire")
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "trajet_id", nullable = false)
     private Trajet trajet;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "host_id")
+    @JsonIgnore
+    private User host;
 
     @OneToMany(mappedBy = "transport", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
@@ -81,6 +91,9 @@ public class Transport {
         }
         if (status == null) {
             status = TransportStatus.SCHEDULED;
+        }
+        if (weatherSource == null || weatherSource.isBlank()) {
+            weatherSource = "MANUAL";
         }
     }
 
@@ -144,7 +157,7 @@ public class Transport {
         return price;
     }
 
-    @AssertTrue(message = "Les places disponibles ne peuvent pas dÃ©passer la capacitÃ© totale")
+    @AssertTrue(message = "Les places disponibles ne peuvent pas dépasser la capacité totale")
     public boolean isValidAvailableSeats() {
         if (availableSeats == null || totalCapacity == null) return true;
         return availableSeats >= 0 && availableSeats <= totalCapacity;

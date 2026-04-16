@@ -38,4 +38,6 @@ public class TrajetDTO {
     private Double pricePerKm;
 
     private Double basePrice;
+
+    private String routeGeoJson;
 }
