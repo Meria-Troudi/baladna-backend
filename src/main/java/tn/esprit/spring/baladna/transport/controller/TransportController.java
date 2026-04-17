@@ -2,15 +2,18 @@ package tn.esprit.spring.baladna.transport.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import tn.esprit.spring.baladna.transport.dto.TransportDTO;
+import tn.esprit.spring.baladna.transport.dto.WeatherPreviewDTO;
 import tn.esprit.spring.baladna.transport.entity.Trajet;
 import tn.esprit.spring.baladna.transport.entity.Transport;
 import tn.esprit.spring.baladna.transport.service.TrajetService;
 import tn.esprit.spring.baladna.transport.service.TransportService;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -124,6 +127,25 @@ public class TransportController {
         return transports.stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
+    }
+
+    @GetMapping("/weather-preview")
+    public ResponseEntity<WeatherPreviewDTO> previewWeather(
+            @RequestParam Long trajetId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime departureDate,
+            Authentication authentication
+    ) {
+        if (authentication == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        WeatherPreviewDTO preview = transportService.previewWeather(
+                trajetId,
+                departureDate,
+                authentication.getName()
+        );
+
+        return ResponseEntity.ok(preview);
     }
 
     @PostMapping

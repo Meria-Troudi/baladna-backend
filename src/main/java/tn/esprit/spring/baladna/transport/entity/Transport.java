@@ -23,20 +23,20 @@ public class Transport {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Le point de d�part est obligatoire")
-    @Size(min = 2, max = 150, message = "Le point de d�part doit contenir entre 2 et 150 caract�res")
+    @NotBlank(message = "Le point de départ est obligatoire")
+    @Size(min = 2, max = 150, message = "Le point de départ doit contenir entre 2 et 150 caractères")
     @Column(nullable = false)
     private String departurePoint;
 
-    @NotNull(message = "La date de d�part est obligatoire")
-    @Future(message = "La date doit �tre dans le futur")
+    @NotNull(message = "La date de départ est obligatoire")
+    @Future(message = "La date doit être dans le futur")
     @Column(nullable = false)
     private LocalDateTime departureDate;
 
-    @NotNull(message = "La capacit� totale est obligatoire")
-    @Positive(message = "La capacit� doit �tre positive")
-    @Min(value = 1, message = "La capacit� minimale est 1")
-    @Max(value = 100, message = "La capacit� maximale est 100")
+    @NotNull(message = "La capacité totale est obligatoire")
+    @Positive(message = "La capacité doit être positive")
+    @Min(value = 1, message = "La capacité minimale est 1")
+    @Max(value = 100, message = "La capacité maximale est 100")
     @Column(nullable = false)
     private Integer totalCapacity;
 
@@ -49,7 +49,7 @@ public class Transport {
     private TransportStatus status;
 
     @NotNull(message = "Le prix de base est obligatoire")
-    @Positive(message = "Le prix de base doit �tre positif")
+    @Positive(message = "Le prix de base doit être positif")
     @Column(nullable = false)
     private Double basePrice;
 
@@ -57,7 +57,7 @@ public class Transport {
     @Column(nullable = false)
     private Boolean trafficJam = false;
 
-    @NotNull(message = "La condition m�t�o est obligatoire")
+    @NotNull(message = "La condition météo est obligatoire")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private WeatherCondition weather;
@@ -65,6 +65,7 @@ public class Transport {
     @Builder.Default
     @Column(nullable = false, length = 20)
     private String weatherSource = "MANUAL";
+
     @Column
     private Double weatherTemperature;
 
@@ -128,8 +129,15 @@ public class Transport {
         return delay;
     }
 
+    @Transient
+    public Integer getDelayMinutes() {
+        return calculateDelay();
+    }
+
     public LocalDateTime getRealDepartureDate() {
-        if (departureDate == null) return null;
+        if (departureDate == null) {
+            return null;
+        }
         return departureDate.plusMinutes(calculateDelay());
     }
 
@@ -165,10 +173,5 @@ public class Transport {
         return Math.round(price * 100.0) / 100.0;
     }
 
-    @AssertTrue(message = "Les places disponibles ne peuvent pas d�passer la capacit� totale")
-    public boolean isValidAvailableSeats() {
-        if (availableSeats == null || totalCapacity == null) return true;
-        return availableSeats >= 0 && availableSeats <= totalCapacity;
-    }
 
 }

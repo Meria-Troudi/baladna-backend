@@ -70,10 +70,5 @@ public class Reservation {
         this.status = ReservationStatus.CANCELLED;
     }
 
-    @AssertTrue(message = "Pas assez de places disponibles dans le transport")
-    public boolean hasEnoughSeats() {
-        if (transport == null || reservedSeats == null) return true;
-        return transport.getAvailableSeats() != null
-                && transport.getAvailableSeats() >= reservedSeats;
-    }
+
 }

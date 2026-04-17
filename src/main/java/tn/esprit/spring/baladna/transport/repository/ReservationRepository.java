@@ -29,6 +29,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     List<Reservation> findByUserAndStatus(User user, ReservationStatus status);
 
+    boolean existsByUserIdAndTransportId(Long userId, Long transportId);
+
     @Query("SELECT COUNT(r) FROM Reservation r WHERE r.transport.id = :transportId AND r.status <> 'CANCELLED'")
     Integer countActiveReservationsByTransport(Long transportId);
 }

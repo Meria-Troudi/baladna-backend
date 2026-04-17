@@ -10,10 +10,11 @@ import tn.esprit.spring.baladna.transport.entity.WeatherCondition;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class WeatherInfo {
-    private Integer weatherCode;
-    private WeatherCondition condition;
-    private Double temperature;
-    private Double windSpeed;
-    private Double precipitation;
+public class WeatherPreviewDTO {
+    private WeatherCondition weather;
+    private String weatherSource;
+    private Double weatherTemperature;
+    private Double weatherWindSpeed;
+    private Double weatherPrecipitation;
+    private Integer delayMinutes;
 }
