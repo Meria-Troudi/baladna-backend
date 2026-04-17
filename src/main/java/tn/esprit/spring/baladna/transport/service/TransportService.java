@@ -3,6 +3,7 @@ package tn.esprit.spring.baladna.transport.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import tn.esprit.spring.baladna.transport.dto.WeatherInfo;
+import tn.esprit.spring.baladna.transport.dto.WeatherPreviewDTO;
 import tn.esprit.spring.baladna.transport.entity.Trajet;
 import tn.esprit.spring.baladna.transport.entity.Transport;
 import tn.esprit.spring.baladna.transport.entity.TransportStatus;
@@ -69,6 +70,7 @@ public class TransportService {
 
         User host = requireHost(hostEmail);
         Trajet ownedTrajet = requireOwnedTrajet(transport.getTrajet().getId(), hostEmail);
+
         transport.setTrajet(ownedTrajet);
         transport.setHost(host);
 
@@ -111,6 +113,9 @@ public class TransportService {
         transport.setStatus(transportDetails.getStatus());
 
         if (transportDetails.getAvailableSeats() != null) {
+            if (transportDetails.getAvailableSeats() > transportDetails.getTotalCapacity()) {
+                throw new RuntimeException("Les places disponibles ne peuvent pas dépasser la capacité totale");
+            }
             transport.setAvailableSeats(transportDetails.getAvailableSeats());
         } else if (transport.getAvailableSeats() == null) {
             transport.setAvailableSeats(transportDetails.getTotalCapacity());
@@ -127,6 +132,36 @@ public class TransportService {
             throw new RuntimeException("Transport non trouvé");
         }
         transportRepository.delete(transport);
+    }
+
+    public WeatherPreviewDTO previewWeather(Long trajetId, LocalDateTime departureDate, String hostEmail) {
+        if (trajetId == null) {
+            throw new RuntimeException("Le trajet est obligatoire");
+        }
+
+        if (departureDate == null) {
+            throw new RuntimeException("La date de départ est obligatoire");
+        }
+
+        Trajet trajet = requireOwnedTrajet(trajetId, hostEmail);
+
+        WeatherInfo weatherInfo = weatherService.getWeatherForDeparture(
+                trajet.getDepartureStation(),
+                departureDate
+        );
+
+        WeatherCondition condition = weatherInfo.getCondition() != null
+                ? weatherInfo.getCondition()
+                : WeatherCondition.SUNNY;
+
+        return WeatherPreviewDTO.builder()
+                .weather(condition)
+                .weatherSource("AUTO")
+                .weatherTemperature(weatherInfo.getTemperature())
+                .weatherWindSpeed(weatherInfo.getWindSpeed())
+                .weatherPrecipitation(weatherInfo.getPrecipitation())
+                .delayMinutes(calculateDelayPreview(condition, false))
+                .build();
     }
 
     private User requireHost(String hostEmail) {
@@ -176,6 +211,28 @@ public class TransportService {
             transport.setWeather(WeatherCondition.SUNNY);
         }
 
+        transport.setWeatherTemperature(null);
+        transport.setWeatherWindSpeed(null);
+        transport.setWeatherPrecipitation(null);
         transport.setWeatherSource("MANUAL");
+    }
+
+    private Integer calculateDelayPreview(WeatherCondition weatherCondition, boolean trafficJam) {
+        int delay = 0;
+
+        if (weatherCondition != null) {
+            switch (weatherCondition) {
+                case RAIN -> delay += 25;
+                case SANDSTORM -> delay += 30;
+                case STORM -> delay += 40;
+                default -> delay += 0;
+            }
+        }
+
+        if (trafficJam) {
+            delay += 20;
+        }
+
+        return delay;
     }
 }
