@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import tn.esprit.spring.baladna.transport.entity.ReservationStatus;
+import tn.esprit.spring.baladna.transport.entity.WeatherCondition;
 
 import java.time.LocalDateTime;
 
@@ -26,6 +27,12 @@ public class ReservationDTO {
     private Long transportId;
     private String transportDeparturePoint;
     private String transportRoute;
+
+    // === NOUVEAU : infos transport pour le host ===
+    private LocalDateTime transportDepartureDate;
+    private WeatherCondition transportWeather;
+    private Double transportWeatherTemperature;
+    private Integer transportDelayMinutes;
 
     private Long userId;
     private String userFullName;
