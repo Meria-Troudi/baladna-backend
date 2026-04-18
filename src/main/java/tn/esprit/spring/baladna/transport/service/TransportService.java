@@ -107,14 +107,12 @@ public class TransportService {
         transport.setTotalCapacity(transportDetails.getTotalCapacity());
         transport.setBasePrice(transportDetails.getBasePrice());
         transport.setTrafficJam(transportDetails.getTrafficJam());
-        transport.setWeather(transportDetails.getWeather());
-        transport.setWeatherSource(transportDetails.getWeatherSource());
         transport.setTrajet(ownedTrajet);
         transport.setStatus(transportDetails.getStatus());
 
         if (transportDetails.getAvailableSeats() != null) {
             if (transportDetails.getAvailableSeats() > transportDetails.getTotalCapacity()) {
-                throw new RuntimeException("Les places disponibles ne peuvent pas dépasser la capacité totale");
+                throw new RuntimeException("Les places disponibles ne peuvent pas depasser la capacite totale");
             }
             transport.setAvailableSeats(transportDetails.getAvailableSeats());
         } else if (transport.getAvailableSeats() == null) {
@@ -129,7 +127,7 @@ public class TransportService {
     public void deleteTransport(Long id, String hostEmail) {
         Transport transport = getTransportByIdForHost(id, hostEmail);
         if (transport == null) {
-            throw new RuntimeException("Transport non trouvé");
+            throw new RuntimeException("Transport non trouve");
         }
         transportRepository.delete(transport);
     }
@@ -140,7 +138,7 @@ public class TransportService {
         }
 
         if (departureDate == null) {
-            throw new RuntimeException("La date de départ est obligatoire");
+            throw new RuntimeException("La date de depart est obligatoire");
         }
 
         Trajet trajet = requireOwnedTrajet(trajetId, hostEmail);
@@ -171,7 +169,7 @@ public class TransportService {
 
     private Trajet requireOwnedTrajet(Long trajetId, String hostEmail) {
         return trajetRepository.findByIdAndHostEmail(trajetId, hostEmail)
-                .orElseThrow(() -> new RuntimeException("Le trajet sélectionné n'appartient pas à ce host"));
+                .orElseThrow(() -> new RuntimeException("Le trajet selectionne n'appartient pas a ce host"));
     }
 
     private void validateTransport(Transport transport) {
@@ -181,40 +179,25 @@ public class TransportService {
 
         if (transport.getTotalCapacity() != null && transport.getAvailableSeats() != null
                 && transport.getAvailableSeats() > transport.getTotalCapacity()) {
-            throw new RuntimeException("Les places disponibles ne peuvent pas dépasser la capacité totale");
+            throw new RuntimeException("Les places disponibles ne peuvent pas depasser la capacite totale");
         }
     }
 
     private void applyWeatherStrategy(Transport transport) {
-        String weatherSource = transport.getWeatherSource();
-        boolean autoWeather = weatherSource == null || weatherSource.isBlank() || "AUTO".equalsIgnoreCase(weatherSource);
+        WeatherInfo weatherInfo = weatherService.getWeatherForDeparture(
+                transport.getTrajet().getDepartureStation(),
+                transport.getDepartureDate()
+        );
 
-        if (autoWeather) {
-            WeatherInfo weatherInfo = weatherService.getWeatherForDeparture(
-                    transport.getTrajet().getDepartureStation(),
-                    transport.getDepartureDate()
-            );
-
-            transport.setWeather(
-                    weatherInfo.getCondition() != null
-                            ? weatherInfo.getCondition()
-                            : WeatherCondition.SUNNY
-            );
-            transport.setWeatherTemperature(weatherInfo.getTemperature());
-            transport.setWeatherWindSpeed(weatherInfo.getWindSpeed());
-            transport.setWeatherPrecipitation(weatherInfo.getPrecipitation());
-            transport.setWeatherSource("AUTO");
-            return;
-        }
-
-        if (transport.getWeather() == null) {
-            transport.setWeather(WeatherCondition.SUNNY);
-        }
-
-        transport.setWeatherTemperature(null);
-        transport.setWeatherWindSpeed(null);
-        transport.setWeatherPrecipitation(null);
-        transport.setWeatherSource("MANUAL");
+        transport.setWeather(
+                weatherInfo.getCondition() != null
+                        ? weatherInfo.getCondition()
+                        : WeatherCondition.SUNNY
+        );
+        transport.setWeatherTemperature(weatherInfo.getTemperature());
+        transport.setWeatherWindSpeed(weatherInfo.getWindSpeed());
+        transport.setWeatherPrecipitation(weatherInfo.getPrecipitation());
+        transport.setWeatherSource("AUTO");
     }
 
     private Integer calculateDelayPreview(WeatherCondition weatherCondition, boolean trafficJam) {

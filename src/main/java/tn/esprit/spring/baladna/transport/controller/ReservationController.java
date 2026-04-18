@@ -10,6 +10,7 @@ import tn.esprit.spring.baladna.transport.dto.ReservationRequestDTO;
 import tn.esprit.spring.baladna.transport.dto.ReservationTicketValidationRequestDTO;
 import tn.esprit.spring.baladna.transport.dto.ReservationTicketValidationResponseDTO;
 import tn.esprit.spring.baladna.transport.entity.Reservation;
+import tn.esprit.spring.baladna.transport.entity.Transport;
 import tn.esprit.spring.baladna.transport.service.ReservationService;
 import tn.esprit.spring.baladna.transport.service.ReservationTicketService;
 
@@ -26,6 +27,8 @@ public class ReservationController {
     private final ReservationTicketService reservationTicketService;
 
     private ReservationDTO toDTO(Reservation reservation) {
+        Transport transport = reservation.getTransport();
+
         return ReservationDTO.builder()
                 .id(reservation.getId())
                 .ticketCode(reservationTicketService.generateTicketCode(reservation))
@@ -35,13 +38,18 @@ public class ReservationController {
                 .reservationDate(reservation.getReservationDate())
                 .boardingPoint(reservation.getBoardingPoint())
                 .status(reservation.getStatus())
-                .transportId(reservation.getTransport().getId())
-                .transportDeparturePoint(reservation.getTransport().getDeparturePoint())
+                .transportId(transport.getId())
+                .transportDeparturePoint(transport.getDeparturePoint())
                 .transportRoute(
-                        reservation.getTransport().getTrajet().getDepartureStation().getName()
+                        transport.getTrajet().getDepartureStation().getName()
                                 + " -> " +
-                                reservation.getTransport().getTrajet().getArrivalStation().getName()
+                                transport.getTrajet().getArrivalStation().getName()
                 )
+                // === NOUVEAU : infos transport pour le host ===
+                .transportDepartureDate(transport.getDepartureDate())
+                .transportWeather(transport.getWeather())
+                .transportWeatherTemperature(transport.getWeatherTemperature())
+                .transportDelayMinutes(transport.calculateDelay())
                 .userId(reservation.getUser().getId())
                 .userFullName(reservation.getUser().getFirstName() + " " + reservation.getUser().getLastName())
                 .userEmail(reservation.getUser().getEmail())
@@ -128,3 +136,4 @@ public class ReservationController {
         return ResponseEntity.noContent().build();
     }
 }
+

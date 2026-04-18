@@ -64,7 +64,7 @@ public class Transport {
 
     @Builder.Default
     @Column(nullable = false, length = 20)
-    private String weatherSource = "MANUAL";
+    private String weatherSource = "AUTO";
 
     @Column
     private Double weatherTemperature;
@@ -102,7 +102,7 @@ public class Transport {
             status = TransportStatus.SCHEDULED;
         }
         if (weatherSource == null || weatherSource.isBlank()) {
-            weatherSource = "MANUAL";
+            weatherSource = "AUTO";
         }
     }
 
@@ -172,6 +172,4 @@ public class Transport {
 
         return Math.round(price * 100.0) / 100.0;
     }
-
-
 }
