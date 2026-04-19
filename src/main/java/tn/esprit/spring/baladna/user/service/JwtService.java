@@ -35,10 +35,12 @@ public class JwtService {
                 .getSubject();
     }
     public Long extractUserId(String token) {
-        Claims claims = Jwts.parser()
+        return Jwts.parser()
                 .setSigningKey(secretKey)
                 .parseClaimsJws(token)
-                .getBody();
-        return claims.get("userId", Long.class);
+                .getBody()
+                .get("userId", Long.class);
     }
+
+    
 }

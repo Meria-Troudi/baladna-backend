@@ -153,6 +153,7 @@ public class UserService {
         stats.put("tourists", userRepo.countByRole(Role.TOURIST));
         stats.put("hosts", userRepo.countByRole(Role.HOST));
         stats.put("admins", userRepo.countByRole(Role.ADMIN));
+        stats.put("artisans", userRepo.countByRole(Role.ARTISAN));
         stats.put("active", userRepo.countByStatus(Status.ACTIVE));
         stats.put("suspended", userRepo.countByStatus(Status.SUSPENDED));
         stats.put("deleted", userRepo.countByStatus(Status.DELETED));

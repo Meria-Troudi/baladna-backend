@@ -12,5 +12,4 @@ public class AuthResponse {
     private String refreshToken;
 
     private Role role;
-    private Long id;
 }

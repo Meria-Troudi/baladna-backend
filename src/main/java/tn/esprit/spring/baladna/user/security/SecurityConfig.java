@@ -1,4 +1,4 @@
-package tn.esprit.spring.baladna.user.security; 
+package tn.esprit.spring.baladna.user.security;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +20,8 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -33,16 +35,47 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/events/**").permitAll()
-                        .requestMatchers("/api/chat/**").permitAll()  // Chat endpoints - includes /info, WebSocket SockJS paths, and all transports. JWT validation happens in WebSocket handshake interceptor
-                        .requestMatchers("/api/itineraries/calendar/auth-url").authenticated()
-                        .requestMatchers("/api/itineraries/calendar/oauth/callback").permitAll()  // OAuth callback from Google needs public access
-                        .requestMatchers("/api/itineraries/calendar/**").authenticated()
+
+                        // ✅ Public
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/login/oauth2/**",
+                                "/oauth2/**",
+                                "/api/events/**",
+                                "/api/rh/interviews",        // ✅ public
+                                "/api/rh/interviews/*",      // ✅ public
+                                "/api/rh/apply"
+
+                        ).permitAll()
+
+                        // ✅ ADMIN
+                        .requestMatchers(
+                                "/api/users/**",
+                                "/api/dashboard-admin/**",
+                                "/api/rh/admin/**"
+                        ).hasRole("ADMIN")
+
+                        // ✅ HOST
+                        .requestMatchers(
+                                "/api/create-event/**",
+                                "/api/create-accommodation/**"
+                        ).hasRole("HOST")
+
+                        // ✅ ARTISAN
+                        .requestMatchers(
+                                "/api/artisan/**"
+                        ).hasRole("ARTISAN")
+
+                        // ✅ Tout utilisateur connecté
                         .requestMatchers("/api/profile/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oAuth2SuccessHandler)
+                );
 
         return http.build();
     }
@@ -51,7 +84,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:4200"));
-        config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS","PATCH"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
