@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 import tn.esprit.spring.baladna.transport.dto.ReservationDTO;
 import tn.esprit.spring.baladna.transport.dto.ReservationRequestDTO;
@@ -55,16 +56,34 @@ public class ReservationController {
                 .build();
     }
 
+    private boolean hasRole(Authentication authentication, String roleName) {
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+
+        String expected = "ROLE_" + roleName;
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(expected::equals);
+    }
+
     // --- LECTURE ---
 
     @GetMapping
-    public List<ReservationDTO> getAllReservations(Authentication authentication) {
-        return reservationService.getReservationsForHost(authentication.getName()).stream()
+    public List<ReservationDTO> getReservations(Authentication authentication) {
+        List<Reservation> reservations;
+
+        if (hasRole(authentication, "TOURIST")) {
+            reservations = reservationService.getReservationsByUserEmail(authentication.getName());
+        } else {
+            reservations = reservationService.getReservationsForHost(authentication.getName());
+        }
+
+        return reservations.stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
 
-    // *** NOUVEAU : réservations en attente d'approbation pour le host ***
     @GetMapping("/pending")
     public List<ReservationDTO> getPendingReservations(Authentication authentication) {
         return reservationService.getPendingReservationsForHost(authentication.getName()).stream()
@@ -123,7 +142,6 @@ public class ReservationController {
 
     // --- ACTIONS HOST ---
 
-    // *** NOUVEAU : approuver une réservation ***
     @PutMapping("/{id}/approve")
     public ResponseEntity<?> approveReservation(@PathVariable Long id, Authentication authentication) {
         try {
@@ -134,7 +152,6 @@ public class ReservationController {
         }
     }
 
-    // *** NOUVEAU : rejeter une réservation ***
     @PutMapping("/{id}/reject")
     public ResponseEntity<?> rejectReservation(@PathVariable Long id, Authentication authentication) {
         try {
@@ -145,7 +162,6 @@ public class ReservationController {
         }
     }
 
-    // Validation ticket → passe automatiquement en BOARDED
     @PostMapping("/validate-ticket")
     public ResponseEntity<ReservationTicketValidationResponseDTO> validateTicket(
             @Valid @RequestBody ReservationTicketValidationRequestDTO request,
