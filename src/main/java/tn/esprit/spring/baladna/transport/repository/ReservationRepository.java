@@ -7,6 +7,7 @@ import tn.esprit.spring.baladna.transport.entity.Reservation;
 import tn.esprit.spring.baladna.transport.entity.ReservationStatus;
 import tn.esprit.spring.baladna.user.entity.User;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,17 +24,25 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     List<Reservation> findByTransportHostEmail(String email);
 
-    // *** NOUVEAU : filtrer par host + statut ***
     List<Reservation> findByTransportHostEmailAndStatus(String email, ReservationStatus status);
 
     Optional<Reservation> findByIdAndTransportHostEmail(Long id, String email);
 
     List<Reservation> findByStatus(ReservationStatus status);
 
+    List<Reservation> findByStatusAndReservationDateBefore(ReservationStatus status, LocalDateTime threshold);
+
     List<Reservation> findByUserAndStatus(User user, ReservationStatus status);
 
     boolean existsByUserIdAndTransportId(Long userId, Long transportId);
 
-    @Query("SELECT COUNT(r) FROM Reservation r WHERE r.transport.id = :transportId AND r.status NOT IN ('CANCELLED', 'REJECTED')")
+    boolean existsByUserIdAndTransportIdAndStatusIn(
+            Long userId,
+            Long transportId,
+            List<ReservationStatus> statuses
+    );
+
+    @Query("SELECT COUNT(r) FROM Reservation r WHERE r.transport.id = :transportId " +
+            "AND r.status NOT IN ('CANCELLED', 'REJECTED')")
     Integer countActiveReservationsByTransport(Long transportId);
 }
