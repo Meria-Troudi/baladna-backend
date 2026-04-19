@@ -1,6 +1,8 @@
 package tn.esprit.spring.baladna.transport.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import tn.esprit.spring.baladna.transport.entity.Transport;
@@ -25,7 +27,8 @@ public interface TransportRepository extends JpaRepository<Transport, Long> {
 
     Optional<Transport> findByIdAndHostEmail(Long id, String email);
 
-    @Query(value = "SELECT * FROM transports WHERE id = :id FOR UPDATE", nativeQuery = true)
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM Transport t WHERE t.id = :id")
     Optional<Transport> findByIdForUpdate(Long id);
 
     List<Transport> findByHostEmailOrderByDepartureDateDesc(String email);

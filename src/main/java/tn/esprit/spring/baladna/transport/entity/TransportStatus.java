@@ -4,6 +4,7 @@ public enum TransportStatus {
         SCHEDULED,
         IN_PROGRESS,
         COMPLETED,
-        CANCELLED
+        CANCELLED,
+        FULL
     }
 
