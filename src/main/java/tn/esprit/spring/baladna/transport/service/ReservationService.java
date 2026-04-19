@@ -22,6 +22,7 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final TransportRepository transportRepository;
     private final UserRepository userRepository;
+    private final ReservationEmailService reservationEmailService; // ← AJOUT
 
     public List<Reservation> getAllReservations() {
         return reservationRepository.findAll();
@@ -29,6 +30,10 @@ public class ReservationService {
 
     public List<Reservation> getReservationsForHost(String hostEmail) {
         return reservationRepository.findByTransportHostEmail(hostEmail);
+    }
+
+    public List<Reservation> getPendingReservationsForHost(String hostEmail) {
+        return reservationRepository.findByTransportHostEmailAndStatus(hostEmail, ReservationStatus.PENDING_APPROVAL);
     }
 
     public Reservation getReservationById(Long id) {
@@ -112,7 +117,7 @@ public class ReservationService {
                 .totalPrice(totalPrice)
                 .reservationDate(LocalDateTime.now())
                 .boardingPoint(boardingPoint)
-                .status(ReservationStatus.CONFIRMED)
+                .status(ReservationStatus.PENDING_APPROVAL)
                 .transport(transport)
                 .user(user)
                 .build();
@@ -121,6 +126,68 @@ public class ReservationService {
         refreshTransportStatusAfterSeatChange(transport);
         transportRepository.save(transport);
 
+        return reservationRepository.save(reservation);
+    }
+
+    @Transactional
+    public Reservation approveReservation(Long id, String hostEmail) {
+        Reservation reservation = reservationRepository.findByIdAndTransportHostEmail(id, hostEmail)
+                .orElseThrow(() -> new RuntimeException("Réservation non trouvée pour ce host"));
+
+        if (reservation.getStatus() != ReservationStatus.PENDING_APPROVAL) {
+            throw new RuntimeException("Seules les réservations en attente peuvent être approuvées");
+        }
+
+        reservation.setStatus(ReservationStatus.CONFIRMED);
+        Reservation saved = reservationRepository.save(reservation);
+        reservationEmailService.sendApprovalEmail(saved); // ← AJOUT EMAIL
+        return saved;
+    }
+
+    @Transactional
+    public Reservation rejectReservation(Long id, String hostEmail) {
+        Reservation reservation = reservationRepository.findByIdAndTransportHostEmail(id, hostEmail)
+                .orElseThrow(() -> new RuntimeException("Réservation non trouvée pour ce host"));
+
+        if (reservation.getStatus() != ReservationStatus.PENDING_APPROVAL) {
+            throw new RuntimeException("Seules les réservations en attente peuvent être rejetées");
+        }
+
+        reservation.setStatus(ReservationStatus.REJECTED);
+
+        Transport transport = reservation.getTransport();
+        if (transport != null) {
+            int currentAvailable = transport.getAvailableSeats() != null ? transport.getAvailableSeats() : 0;
+            int reservedSeats = reservation.getReservedSeats() != null ? reservation.getReservedSeats() : 0;
+            int totalCapacity = transport.getTotalCapacity() != null ? transport.getTotalCapacity() : currentAvailable + reservedSeats;
+            transport.setAvailableSeats(Math.min(totalCapacity, currentAvailable + reservedSeats));
+            refreshTransportStatusAfterSeatChange(transport);
+            transportRepository.save(transport);
+        }
+
+        Reservation saved = reservationRepository.save(reservation);
+        reservationEmailService.sendRejectionEmail(saved); // ← AJOUT EMAIL
+        return saved;
+    }
+
+    @Transactional
+    public Reservation markAsBoarded(Long id, String hostEmail) {
+        Reservation reservation = reservationRepository.findByIdAndTransportHostEmail(id, hostEmail)
+                .orElseThrow(() -> new RuntimeException("Réservation non trouvée pour ce host"));
+
+        if (reservation.getStatus() == ReservationStatus.CANCELLED) {
+            throw new RuntimeException("Impossible de valider une réservation annulée");
+        }
+
+        if (reservation.getStatus() == ReservationStatus.REJECTED) {
+            throw new RuntimeException("Impossible de valider une réservation rejetée");
+        }
+
+        if (reservation.getStatus() == ReservationStatus.BOARDED) {
+            throw new RuntimeException("Ce passager est déjà enregistré comme monté à bord");
+        }
+
+        reservation.setStatus(ReservationStatus.BOARDED);
         return reservationRepository.save(reservation);
     }
 
@@ -140,6 +207,10 @@ public class ReservationService {
             throw new RuntimeException("Cette réservation est déjà annulée");
         }
 
+        if (reservation.getStatus() == ReservationStatus.BOARDED) {
+            throw new RuntimeException("Impossible d'annuler une réservation déjà enregistrée à bord");
+        }
+
         reservation.setStatus(ReservationStatus.CANCELLED);
 
         Transport transport = reservation.getTransport();
@@ -147,7 +218,6 @@ public class ReservationService {
             int currentAvailable = transport.getAvailableSeats() != null ? transport.getAvailableSeats() : 0;
             int reservedSeats = reservation.getReservedSeats() != null ? reservation.getReservedSeats() : 0;
             int totalCapacity = transport.getTotalCapacity() != null ? transport.getTotalCapacity() : currentAvailable + reservedSeats;
-
             transport.setAvailableSeats(Math.min(totalCapacity, currentAvailable + reservedSeats));
             refreshTransportStatusAfterSeatChange(transport);
             transportRepository.save(transport);
@@ -164,13 +234,13 @@ public class ReservationService {
             throw new RuntimeException("Réservation non trouvée");
         }
 
-        if (reservation.getStatus() != ReservationStatus.CANCELLED) {
+        if (reservation.getStatus() != ReservationStatus.CANCELLED
+                && reservation.getStatus() != ReservationStatus.REJECTED) {
             Transport transport = reservation.getTransport();
             if (transport != null) {
                 int currentAvailable = transport.getAvailableSeats() != null ? transport.getAvailableSeats() : 0;
                 int reservedSeats = reservation.getReservedSeats() != null ? reservation.getReservedSeats() : 0;
                 int totalCapacity = transport.getTotalCapacity() != null ? transport.getTotalCapacity() : currentAvailable + reservedSeats;
-
                 transport.setAvailableSeats(Math.min(totalCapacity, currentAvailable + reservedSeats));
                 refreshTransportStatusAfterSeatChange(transport);
                 transportRepository.save(transport);
@@ -181,14 +251,9 @@ public class ReservationService {
     }
 
     private void refreshTransportStatusAfterSeatChange(Transport transport) {
-        if (transport == null || transport.getStatus() == TransportStatus.CANCELLED || transport.getStatus() == TransportStatus.COMPLETED) {
-            return;
-        }
-
-        Integer availableSeats = transport.getAvailableSeats();
-        if (availableSeats != null && availableSeats <= 0) {
-            // Si ton enum n'a pas FULL, on laisse SCHEDULED
-            transport.setStatus(TransportStatus.SCHEDULED);
+        if (transport == null
+                || transport.getStatus() == TransportStatus.CANCELLED
+                || transport.getStatus() == TransportStatus.COMPLETED) {
             return;
         }
 
