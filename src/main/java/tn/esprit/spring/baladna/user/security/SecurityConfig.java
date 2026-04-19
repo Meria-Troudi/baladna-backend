@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -24,13 +25,10 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
 
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -38,44 +36,68 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
                         .requestMatchers("/api/events/**").permitAll()
+
                         .requestMatchers("/api/profile/**").authenticated()
 
-                        .requestMatchers("/api/users/**").hasRole("ADMIN")
-                        .requestMatchers("/api/dashboard-admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/users/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
+                        .requestMatchers("/api/dashboard-admin/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
 
-                        .requestMatchers("/api/artisan/**").hasRole("ARTISAN")
+                        .requestMatchers("/api/artisan/**").hasAnyAuthority("ARTISAN", "ROLE_ARTISAN")
 
-                        .requestMatchers(HttpMethod.GET, "/api/stations/**").hasAnyRole("HOST", "TOURIST")
-                        .requestMatchers(HttpMethod.POST, "/api/stations/**").hasRole("HOST")
-                        .requestMatchers(HttpMethod.PUT, "/api/stations/**").hasRole("HOST")
-                        .requestMatchers(HttpMethod.DELETE, "/api/stations/**").hasRole("HOST")
+                        .requestMatchers(HttpMethod.GET, "/api/stations/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST", "TOURIST", "ROLE_TOURIST")
+                        .requestMatchers(HttpMethod.POST, "/api/stations/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
+                        .requestMatchers(HttpMethod.PUT, "/api/stations/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
+                        .requestMatchers(HttpMethod.DELETE, "/api/stations/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
 
-                        .requestMatchers(HttpMethod.GET, "/api/trajets/**").hasAnyRole("HOST", "TOURIST")
-                        .requestMatchers(HttpMethod.POST, "/api/trajets/**").hasRole("HOST")
-                        .requestMatchers(HttpMethod.PUT, "/api/trajets/**").hasRole("HOST")
-                        .requestMatchers(HttpMethod.DELETE, "/api/trajets/**").hasRole("HOST")
+                        .requestMatchers(HttpMethod.GET, "/api/trajets/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST", "TOURIST", "ROLE_TOURIST")
+                        .requestMatchers(HttpMethod.POST, "/api/trajets/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
+                        .requestMatchers(HttpMethod.PUT, "/api/trajets/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
+                        .requestMatchers(HttpMethod.DELETE, "/api/trajets/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
 
-                        .requestMatchers(HttpMethod.GET, "/api/transports/**").hasAnyRole("HOST", "TOURIST")
-                        .requestMatchers(HttpMethod.POST, "/api/transports/**").hasRole("HOST")
-                        .requestMatchers(HttpMethod.PUT, "/api/transports/**").hasRole("HOST")
-                        .requestMatchers(HttpMethod.DELETE, "/api/transports/**").hasRole("HOST")
+                        .requestMatchers(HttpMethod.GET, "/api/transports/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST", "TOURIST", "ROLE_TOURIST")
+                        .requestMatchers(HttpMethod.POST, "/api/transports/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
+                        .requestMatchers(HttpMethod.PUT, "/api/transports/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
+                        .requestMatchers(HttpMethod.DELETE, "/api/transports/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
 
-                        .requestMatchers(HttpMethod.GET, "/api/reservations/me").hasRole("TOURIST")
-                        .requestMatchers(HttpMethod.POST, "/api/reservations").hasRole("TOURIST")
-                        .requestMatchers(HttpMethod.PUT, "/api/reservations/*/cancel").hasRole("TOURIST")
+                        .requestMatchers(HttpMethod.GET, "/api/reservations")
+                        .hasAnyAuthority("HOST", "ROLE_HOST", "TOURIST", "ROLE_TOURIST")
+                        .requestMatchers(HttpMethod.GET, "/api/reservations/me")
+                        .hasAnyAuthority("TOURIST", "ROLE_TOURIST")
+                        .requestMatchers(HttpMethod.POST, "/api/reservations")
+                        .hasAnyAuthority("TOURIST", "ROLE_TOURIST")
+                        .requestMatchers(HttpMethod.PUT, "/api/reservations/*/cancel")
+                        .hasAnyAuthority("TOURIST", "ROLE_TOURIST")
 
-                        // ← AJOUT : approve et reject pour le host
-                        .requestMatchers(HttpMethod.PUT, "/api/reservations/*/approve").hasRole("HOST")
-                        .requestMatchers(HttpMethod.PUT, "/api/reservations/*/reject").hasRole("HOST")
+                        .requestMatchers(HttpMethod.PUT, "/api/reservations/*/approve")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
+                        .requestMatchers(HttpMethod.PUT, "/api/reservations/*/reject")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
 
-                        .requestMatchers(HttpMethod.GET, "/api/reservations/pending").hasRole("HOST")
-                        .requestMatchers(HttpMethod.POST, "/api/reservations/validate-ticket").hasRole("HOST")
-                        .requestMatchers(HttpMethod.GET, "/api/reservations/**").hasRole("HOST")
-                        .requestMatchers(HttpMethod.DELETE, "/api/reservations/**").hasRole("HOST")
+                        .requestMatchers(HttpMethod.GET, "/api/reservations/pending")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
+                        .requestMatchers(HttpMethod.POST, "/api/reservations/validate-ticket")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
+                        .requestMatchers(HttpMethod.GET, "/api/reservations/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
+                        .requestMatchers(HttpMethod.DELETE, "/api/reservations/**")
+                        .hasAnyAuthority("HOST", "ROLE_HOST")
 
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .httpBasic(Customizer.withDefaults());
 
         return http.build();
     }
@@ -84,9 +106,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(List.of(
-                "http://localhost:4200"
-        ));
+        config.setAllowedOrigins(List.of("http://localhost:4200"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
