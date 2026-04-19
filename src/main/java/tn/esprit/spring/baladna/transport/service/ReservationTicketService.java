@@ -2,6 +2,7 @@ package tn.esprit.spring.baladna.transport.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import tn.esprit.spring.baladna.transport.dto.ReservationTicketValidationResponseDTO;
 import tn.esprit.spring.baladna.transport.entity.Reservation;
 import tn.esprit.spring.baladna.transport.entity.ReservationStatus;
@@ -46,6 +47,8 @@ public class ReservationTicketService {
         return String.format(Locale.ROOT, "BLD-%04d-%s", reservation.getId(), signature);
     }
 
+    // *** CHANGEMENT : validateTicketCode marque maintenant BOARDED ***
+    @Transactional
     public ReservationTicketValidationResponseDTO validateTicketCode(String rawTicketCode, String hostEmail) {
         String ticketCode = normalize(rawTicketCode);
         if (ticketCode == null) {
@@ -63,6 +66,8 @@ public class ReservationTicketService {
         }
 
         Reservation reservation = optionalReservation.get();
+
+        // Vérification signature HMAC (on génère avec le statut actuel)
         String expectedTicketCode = generateTicketCode(reservation);
         if (!expectedTicketCode.equalsIgnoreCase(ticketCode)) {
             return invalid("Ticket signature does not match the reservation.");
@@ -72,7 +77,23 @@ public class ReservationTicketService {
             return buildResponse(reservation, expectedTicketCode, false, "Ticket found but the reservation is cancelled.");
         }
 
-        return buildResponse(reservation, expectedTicketCode, true, "Ticket is valid and ready for boarding control.");
+        if (reservation.getStatus() == ReservationStatus.REJECTED) {
+            return buildResponse(reservation, expectedTicketCode, false, "Ticket found but the reservation was rejected.");
+        }
+
+        if (reservation.getStatus() == ReservationStatus.PENDING_APPROVAL) {
+            return buildResponse(reservation, expectedTicketCode, false, "Ticket found but the reservation is still pending host approval.");
+        }
+
+        if (reservation.getStatus() == ReservationStatus.BOARDED) {
+            return buildResponse(reservation, expectedTicketCode, true, "Passenger already boarded. Ticket previously validated.");
+        }
+
+        // CONFIRMED → on passe à BOARDED
+        reservation.setStatus(ReservationStatus.BOARDED);
+        reservationRepository.save(reservation);
+
+        return buildResponse(reservation, expectedTicketCode, true, "Ticket valid. Passenger marked as boarded.");
     }
 
     private ReservationTicketValidationResponseDTO buildResponse(

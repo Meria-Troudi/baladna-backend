@@ -23,6 +23,9 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     List<Reservation> findByTransportHostEmail(String email);
 
+    // *** NOUVEAU : filtrer par host + statut ***
+    List<Reservation> findByTransportHostEmailAndStatus(String email, ReservationStatus status);
+
     Optional<Reservation> findByIdAndTransportHostEmail(Long id, String email);
 
     List<Reservation> findByStatus(ReservationStatus status);
@@ -31,6 +34,6 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     boolean existsByUserIdAndTransportId(Long userId, Long transportId);
 
-    @Query("SELECT COUNT(r) FROM Reservation r WHERE r.transport.id = :transportId AND r.status <> 'CANCELLED'")
+    @Query("SELECT COUNT(r) FROM Reservation r WHERE r.transport.id = :transportId AND r.status NOT IN ('CANCELLED', 'REJECTED')")
     Integer countActiveReservationsByTransport(Long transportId);
 }

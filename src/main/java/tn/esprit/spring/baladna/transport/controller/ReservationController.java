@@ -45,7 +45,6 @@ public class ReservationController {
                                 + " -> " +
                                 transport.getTrajet().getArrivalStation().getName()
                 )
-                // === NOUVEAU : infos transport pour le host ===
                 .transportDepartureDate(transport.getDepartureDate())
                 .transportWeather(transport.getWeather())
                 .transportWeatherTemperature(transport.getWeatherTemperature())
@@ -56,9 +55,19 @@ public class ReservationController {
                 .build();
     }
 
+    // --- LECTURE ---
+
     @GetMapping
     public List<ReservationDTO> getAllReservations(Authentication authentication) {
         return reservationService.getReservationsForHost(authentication.getName()).stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    // *** NOUVEAU : réservations en attente d'approbation pour le host ***
+    @GetMapping("/pending")
+    public List<ReservationDTO> getPendingReservations(Authentication authentication) {
+        return reservationService.getPendingReservationsForHost(authentication.getName()).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
@@ -79,25 +88,23 @@ public class ReservationController {
 
     @GetMapping("/me")
     public List<ReservationDTO> getMyReservations(Authentication authentication) {
-        String userEmail = authentication.getName();
-        return reservationService.getReservationsByUserEmail(userEmail).stream()
+        return reservationService.getReservationsByUserEmail(authentication.getName()).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
+
+    // --- ACTIONS TOURIST ---
 
     @PostMapping
     public ResponseEntity<?> makeReservation(@Valid @RequestBody ReservationRequestDTO request,
                                              Authentication authentication) {
         try {
-            String userEmail = authentication.getName();
-
             Reservation reservation = reservationService.makeReservation(
                     request.getTransportId(),
-                    userEmail,
+                    authentication.getName(),
                     request.getBoardingPoint(),
                     request.getSeatsCount()
             );
-
             return ResponseEntity.ok(toDTO(reservation));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -107,14 +114,38 @@ public class ReservationController {
     @PutMapping("/{id}/cancel")
     public ResponseEntity<?> cancelReservation(@PathVariable Long id, Authentication authentication) {
         try {
-            String userEmail = authentication.getName();
-            Reservation reservation = reservationService.cancelReservation(id, userEmail);
+            Reservation reservation = reservationService.cancelReservation(id, authentication.getName());
             return ResponseEntity.ok(toDTO(reservation));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
+    // --- ACTIONS HOST ---
+
+    // *** NOUVEAU : approuver une réservation ***
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<?> approveReservation(@PathVariable Long id, Authentication authentication) {
+        try {
+            Reservation reservation = reservationService.approveReservation(id, authentication.getName());
+            return ResponseEntity.ok(toDTO(reservation));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // *** NOUVEAU : rejeter une réservation ***
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<?> rejectReservation(@PathVariable Long id, Authentication authentication) {
+        try {
+            Reservation reservation = reservationService.rejectReservation(id, authentication.getName());
+            return ResponseEntity.ok(toDTO(reservation));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // Validation ticket → passe automatiquement en BOARDED
     @PostMapping("/validate-ticket")
     public ResponseEntity<ReservationTicketValidationResponseDTO> validateTicket(
             @Valid @RequestBody ReservationTicketValidationRequestDTO request,
@@ -136,4 +167,3 @@ public class ReservationController {
         return ResponseEntity.noContent().build();
     }
 }
-

@@ -64,6 +64,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/reservations").hasRole("TOURIST")
                         .requestMatchers(HttpMethod.PUT, "/api/reservations/*/cancel").hasRole("TOURIST")
 
+                        // ← AJOUT : approve et reject pour le host
+                        .requestMatchers(HttpMethod.PUT, "/api/reservations/*/approve").hasRole("HOST")
+                        .requestMatchers(HttpMethod.PUT, "/api/reservations/*/reject").hasRole("HOST")
+
+                        .requestMatchers(HttpMethod.GET, "/api/reservations/pending").hasRole("HOST")
                         .requestMatchers(HttpMethod.POST, "/api/reservations/validate-ticket").hasRole("HOST")
                         .requestMatchers(HttpMethod.GET, "/api/reservations/**").hasRole("HOST")
                         .requestMatchers(HttpMethod.DELETE, "/api/reservations/**").hasRole("HOST")
