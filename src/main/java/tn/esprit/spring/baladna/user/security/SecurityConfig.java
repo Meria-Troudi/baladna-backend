@@ -35,6 +35,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/events/**").permitAll()
+                        .requestMatchers("/api/chat/**").permitAll()  // Chat endpoints - includes /info, WebSocket SockJS paths, and all transports. JWT validation happens in WebSocket handshake interceptor
+                        .requestMatchers("/api/itineraries/calendar/auth-url").authenticated()
+                        .requestMatchers("/api/itineraries/calendar/oauth/callback").permitAll()  // OAuth callback from Google needs public access
+                        .requestMatchers("/api/itineraries/calendar/**").authenticated()
                         .requestMatchers("/api/profile/**").authenticated()
                         .anyRequest().authenticated()
                 )
