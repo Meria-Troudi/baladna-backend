@@ -94,16 +94,15 @@ public class ReservationService {
             throw new RuntimeException("This transport is already completed.");
         }
 
-        boolean alreadyReserved = reservationRepository
-                .existsByUserIdAndTransportIdAndStatusIn(
-                        user.getId(),
-                        transport.getId(),
-                        List.of(
-                                ReservationStatus.PENDING_APPROVAL,
-                                ReservationStatus.CONFIRMED,
-                                ReservationStatus.BOARDED
-                        )
-                );
+        boolean alreadyReserved = reservationRepository.existsByUserIdAndTransportIdAndStatusIn(
+                user.getId(),
+                transport.getId(),
+                List.of(
+                        ReservationStatus.PENDING_APPROVAL,
+                        ReservationStatus.CONFIRMED,
+                        ReservationStatus.BOARDED
+                )
+        );
 
         if (alreadyReserved) {
             throw new RuntimeException("You already have an active reservation for this transport.");
@@ -296,6 +295,12 @@ public class ReservationService {
         if (transport == null
                 || transport.getStatus() == TransportStatus.CANCELLED
                 || transport.getStatus() == TransportStatus.COMPLETED) {
+            return;
+        }
+
+        Integer availableSeats = transport.getAvailableSeats();
+        if (availableSeats != null && availableSeats <= 0) {
+            transport.setStatus(TransportStatus.FULL);
             return;
         }
 

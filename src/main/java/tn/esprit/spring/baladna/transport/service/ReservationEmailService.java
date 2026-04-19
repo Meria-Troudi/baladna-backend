@@ -1,27 +1,26 @@
 package tn.esprit.spring.baladna.transport.service;
 
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import tn.esprit.spring.baladna.transport.entity.Reservation;
+import tn.esprit.spring.baladna.transport.entity.Transport;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
 import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ReservationEmailService {
 
     private final JavaMailSender mailSender;
-    private final ReservationTicketService reservationTicketService;
 
-    @Value("${transport.mail.from:noreply@baladna.tn}")
+    @Value("${transport.mail.from}")
     private String fromEmail;
 
     private static final DateTimeFormatter DATE_FORMAT =
@@ -29,247 +28,180 @@ public class ReservationEmailService {
 
     @Async
     public void sendPendingEmail(Reservation reservation) {
-        if (reservation.getUser() == null || reservation.getUser().getEmail() == null) return;
-
         String to = reservation.getUser().getEmail();
-        String passengerName = reservation.getUser().getFirstName()
-                + " " + reservation.getUser().getLastName();
-
-        String route = "N/A";
-        String departureDate = "N/A";
-
-        if (reservation.getTransport() != null) {
-            if (reservation.getTransport().getTrajet() != null) {
-                String dep = reservation.getTransport().getTrajet().getDepartureStation() != null
-                        ? reservation.getTransport().getTrajet().getDepartureStation().getName()
-                        : "Departure";
-                String arr = reservation.getTransport().getTrajet().getArrivalStation() != null
-                        ? reservation.getTransport().getTrajet().getArrivalStation().getName()
-                        : "Arrival";
-                route = dep + " → " + arr;
-            }
-            if (reservation.getTransport().getDepartureDate() != null) {
-                departureDate = reservation.getTransport().getDepartureDate().format(DATE_FORMAT);
-            }
-        }
-
-        String subject = "⏳ Reservation request received — " + route;
-        String html = """
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#f9fafb;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
-              <div style="background:#1a3a5c;padding:32px;text-align:center">
-                <h1 style="color:#fff;margin:0;font-size:26px">⏳ Request Received</h1>
-                <p style="color:#93c5fd;margin:8px 0 0;font-size:14px">Baladna Transport</p>
-              </div>
-              <div style="padding:32px">
-                <p style="font-size:16px;margin-top:0">Hello <strong>%s</strong>,</p>
-                <p>Your reservation request has been received and is currently pending approval.</p>
-                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:20px 0">
-                  <table style="width:100%%;border-collapse:collapse;font-size:15px">
-                    <tr style="border-bottom:1px solid #f3f4f6">
-                      <td style="padding:10px 0;color:#6b7280">Route</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%s</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #f3f4f6">
-                      <td style="padding:10px 0;color:#6b7280">Departure Date</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%s</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #f3f4f6">
-                      <td style="padding:10px 0;color:#6b7280">Requested Seats</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%d</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:10px 0;color:#6b7280">Total Price</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%.2f DT</td>
-                    </tr>
-                  </table>
-                </div>
-                <div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:10px;padding:16px;text-align:center;margin:20px 0">
-                  <p style="color:#92400e;margin:0;font-weight:bold">Pending Approval</p>
-                  <p style="color:#92400e;margin:8px 0 0;font-size:13px">You will receive an email as soon as the host responds.</p>
-                </div>
-                <p style="color:#9ca3af;font-size:12px;margin-top:32px;text-align:center">Thank you for traveling with Baladna 🌍</p>
-              </div>
-            </div>
-            """.formatted(
-                passengerName, route, departureDate,
-                reservation.getReservedSeats() != null ? reservation.getReservedSeats() : 0,
-                reservation.getTotalPrice() != null ? reservation.getTotalPrice() : 0.0
-        );
-
-        sendHtml(to, subject, html);
+        String subject = "Reservation Request Submitted — " + getRoute(reservation);
+        String html = buildPendingHtml(reservation);
+        sendHtmlEmail(to, subject, html);
     }
 
     @Async
     public void sendApprovalEmail(Reservation reservation) {
-        if (reservation.getUser() == null || reservation.getUser().getEmail() == null) return;
-
         String to = reservation.getUser().getEmail();
-        String passengerName = reservation.getUser().getFirstName()
-                + " " + reservation.getUser().getLastName();
-        String ticketCode = reservationTicketService.generateTicketCode(reservation);
-
-        String route = "N/A";
-        String departureDate = "N/A";
-        String departureStation = "N/A";
-
-        if (reservation.getTransport() != null) {
-            if (reservation.getTransport().getTrajet() != null) {
-                String dep = reservation.getTransport().getTrajet().getDepartureStation() != null
-                        ? reservation.getTransport().getTrajet().getDepartureStation().getName()
-                        : "Departure";
-                String arr = reservation.getTransport().getTrajet().getArrivalStation() != null
-                        ? reservation.getTransport().getTrajet().getArrivalStation().getName()
-                        : "Arrival";
-                route = dep + " → " + arr;
-                departureStation = dep;
-            }
-            if (reservation.getTransport().getDepartureDate() != null) {
-                departureDate = reservation.getTransport().getDepartureDate().format(DATE_FORMAT);
-            }
-        }
-
-        String subject = "✅ Reservation confirmed — " + route;
-        String html = buildApprovalHtml(
-                passengerName, ticketCode, route, departureDate, departureStation,
-                reservation.getReservedSeats(), reservation.getTotalPrice(),
-                reservation.getBoardingPoint()
-        );
-
-        sendHtml(to, subject, html);
+        String subject = "Reservation Confirmed — " + getRoute(reservation);
+        String html = buildApprovalHtml(reservation);
+        sendHtmlEmail(to, subject, html);
     }
 
     @Async
     public void sendRejectionEmail(Reservation reservation) {
-        if (reservation.getUser() == null || reservation.getUser().getEmail() == null) return;
-
         String to = reservation.getUser().getEmail();
-        String passengerName = reservation.getUser().getFirstName()
-                + " " + reservation.getUser().getLastName();
-
-        String route = "N/A";
-        if (reservation.getTransport() != null
-                && reservation.getTransport().getTrajet() != null) {
-            String dep = reservation.getTransport().getTrajet().getDepartureStation() != null
-                    ? reservation.getTransport().getTrajet().getDepartureStation().getName()
-                    : "Departure";
-            String arr = reservation.getTransport().getTrajet().getArrivalStation() != null
-                    ? reservation.getTransport().getTrajet().getArrivalStation().getName()
-                    : "Arrival";
-            route = dep + " → " + arr;
-        }
-
-        String subject = "❌ Reservation rejected — " + route;
-        String html = buildRejectionHtml(
-                passengerName, route,
-                reservation.getReservedSeats(), reservation.getBoardingPoint()
-        );
-
-        sendHtml(to, subject, html);
+        String subject = "Reservation Rejected — " + getRoute(reservation);
+        String html = buildRejectionHtml(reservation);
+        sendHtmlEmail(to, subject, html);
     }
 
-    private void sendHtml(String to, String subject, String html) {
+    private void sendHtmlEmail(String to, String subject, String html) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
             helper.setFrom(fromEmail);
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(html, true);
             mailSender.send(message);
-            log.info("[ReservationEmailService] Email sent to {}", to);
-        } catch (MessagingException e) {
-            log.error("[ReservationEmailService] Failed to send email to {}: {}", to, e.getMessage());
+        } catch (MessagingException | MailException e) {
+            System.err.println("[ReservationEmailService] Email sending failed: " + e.getMessage());
         }
     }
 
-    private String buildApprovalHtml(String name, String ticketCode, String route,
-                                     String departureDate, String departureStation,
-                                     Integer seats, Double totalPrice, String boardingPoint) {
-        return """
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#f9fafb;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
-              <div style="background:#1a3a5c;padding:32px;text-align:center">
-                <h1 style="color:#fff;margin:0;font-size:26px">🎉 Reservation Confirmed</h1>
-                <p style="color:#93c5fd;margin:8px 0 0;font-size:14px">Baladna Transport</p>
-              </div>
-              <div style="padding:32px">
-                <p style="font-size:16px;margin-top:0">Hello <strong>%s</strong>,</p>
-                <p style="color:#374151">Your reservation has been <strong style="color:#16a34a">approved</strong> by the host. You can now board the transport.</p>
-                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:20px 0">
-                  <table style="width:100%%;border-collapse:collapse;font-size:15px">
-                    <tr style="border-bottom:1px solid #f3f4f6">
-                      <td style="padding:10px 0;color:#6b7280">Route</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%s</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #f3f4f6">
-                      <td style="padding:10px 0;color:#6b7280">Departure Date</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%s</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #f3f4f6">
-                      <td style="padding:10px 0;color:#6b7280">Departure Station</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%s</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #f3f4f6">
-                      <td style="padding:10px 0;color:#6b7280">Boarding Point</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%s</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #f3f4f6">
-                      <td style="padding:10px 0;color:#6b7280">Reserved Seats</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%d</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:10px 0;color:#6b7280">Total Price</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%.2f DT</td>
-                    </tr>
-                  </table>
-                </div>
-                <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:10px;padding:20px;text-align:center;margin:24px 0">
-                  <p style="color:#6b7280;margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:1px">Your Ticket Code</p>
-                  <p style="font-size:26px;font-weight:bold;color:#1a3a5c;letter-spacing:4px;margin:0;font-family:monospace">%s</p>
-                  <p style="color:#6b7280;margin:10px 0 0;font-size:12px">Present this code to the host on departure day for validation.</p>
-                </div>
-                <p style="color:#9ca3af;font-size:12px;margin-top:32px;text-align:center">Thank you for traveling with Baladna 🌍</p>
-              </div>
-            </div>
-            """.formatted(name, route, departureDate, departureStation,
-                boardingPoint != null ? boardingPoint : "N/A",
-                seats != null ? seats : 0,
-                totalPrice != null ? totalPrice : 0.0,
-                ticketCode);
+    private String buildPendingHtml(Reservation reservation) {
+        return buildBaseTemplate(
+                "Reservation Request Submitted",
+                "Your reservation request has been received and is currently pending host approval.",
+                reservation,
+                "#1d4ed8",
+                statusBox("Pending Approval", "You will receive another email as soon as the host responds.", "#f59e0b", "#fff7ed")
+        );
     }
 
-    private String buildRejectionHtml(String name, String route,
-                                      Integer seats, String boardingPoint) {
+    private String buildApprovalHtml(Reservation reservation) {
+        return buildBaseTemplate(
+                "Reservation Confirmed",
+                "Great news! Your reservation has been approved by the host.",
+                reservation,
+                "#16a34a",
+                statusBox("Confirmed", "Your booking is now confirmed. You can access your QR code and PDF ticket from the application.", "#16a34a", "#f0fdf4")
+        );
+    }
+
+    private String buildRejectionHtml(Reservation reservation) {
+        return buildBaseTemplate(
+                "Reservation Rejected",
+                "Your reservation request has been rejected by the host.",
+                reservation,
+                "#dc2626",
+                statusBox("Rejected", "The reserved seats were released automatically. You may choose another transport from the application.", "#dc2626", "#fef2f2")
+        );
+    }
+
+    private String buildBaseTemplate(String title,
+                                     String intro,
+                                     Reservation reservation,
+                                     String headerColor,
+                                     String statusSection) {
+
+        String fullName = getSafeFullName(reservation);
+        String route = getRoute(reservation);
+        String departureDate = reservation.getTransport().getDepartureDate() != null
+                ? reservation.getTransport().getDepartureDate().format(DATE_FORMAT)
+                : "N/A";
+        String boardingPoint = reservation.getBoardingPoint() != null
+                ? reservation.getBoardingPoint()
+                : "N/A";
+
         return """
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#f9fafb;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb">
-              <div style="background:#7f1d1d;padding:32px;text-align:center">
-                <h1 style="color:#fff;margin:0;font-size:26px">❌ Reservation Rejected</h1>
-                <p style="color:#fca5a5;margin:8px 0 0;font-size:14px">Baladna Transport</p>
-              </div>
-              <div style="padding:32px">
-                <p style="font-size:16px;margin-top:0">Hello <strong>%s</strong>,</p>
-                <p style="color:#374151">We are sorry, but your request for route <strong>%s</strong> has been <strong style="color:#dc2626">rejected</strong> by the host.</p>
-                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:20px 0">
-                  <table style="width:100%%;border-collapse:collapse;font-size:15px">
-                    <tr style="border-bottom:1px solid #f3f4f6">
-                      <td style="padding:10px 0;color:#6b7280">Route</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%s</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #f3f4f6">
-                      <td style="padding:10px 0;color:#6b7280">Requested Seats</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%d</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:10px 0;color:#6b7280">Boarding Point</td>
-                      <td style="padding:10px 0;font-weight:bold;text-align:right">%s</td>
-                    </tr>
-                  </table>
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>%s</title>
+                </head>
+                <body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+                  <div style="max-width:760px;margin:30px auto;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e5e7eb;">
+                    
+                    <div style="background:%s;padding:28px 32px;text-align:center;">
+                      <h1 style="margin:0;color:#ffffff;font-size:30px;font-weight:700;">%s</h1>
+                      <p style="margin:10px 0 0;color:#dbeafe;font-size:18px;">Baladna Transport</p>
+                    </div>
+
+                    <div style="padding:34px 40px;">
+                      <p style="margin:0 0 10px;font-size:16px;">Hello <strong>%s</strong>,</p>
+                      <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:#475569;">%s</p>
+
+                      <div style="border:1px solid #e5e7eb;border-radius:16px;padding:24px 28px;background:#fafafa;">
+                        <table style="width:100%%;border-collapse:collapse;">
+                          <tr>
+                            <td style="padding:14px 0;color:#64748b;font-size:14px;width:34%%;">Route</td>
+                            <td style="padding:14px 0;font-size:16px;font-weight:700;color:#334155;">%s</td>
+                          </tr>
+                          <tr><td colspan="2" style="border-top:1px solid #e5e7eb;"></td></tr>
+                          <tr>
+                            <td style="padding:14px 0;color:#64748b;font-size:14px;">Departure Date</td>
+                            <td style="padding:14px 0;font-size:15px;font-weight:600;">%s</td>
+                          </tr>
+                          <tr><td colspan="2" style="border-top:1px solid #e5e7eb;"></td></tr>
+                          <tr>
+                            <td style="padding:14px 0;color:#64748b;font-size:14px;">Requested Seats</td>
+                            <td style="padding:14px 0;font-size:15px;font-weight:600;">%d</td>
+                          </tr>
+                          <tr><td colspan="2" style="border-top:1px solid #e5e7eb;"></td></tr>
+                          <tr>
+                            <td style="padding:14px 0;color:#64748b;font-size:14px;">Total Price</td>
+                            <td style="padding:14px 0;font-size:15px;font-weight:700;">%.2f DT</td>
+                          </tr>
+                          <tr><td colspan="2" style="border-top:1px solid #e5e7eb;"></td></tr>
+                          <tr>
+                            <td style="padding:14px 0;color:#64748b;font-size:14px;">Boarding Point</td>
+                            <td style="padding:14px 0;font-size:15px;font-weight:600;">%s</td>
+                          </tr>
+                        </table>
+                      </div>
+
+                      %s
+
+                      <p style="margin:28px 0 0;font-size:13px;color:#94a3b8;text-align:center;">
+                        Thank you for travelling with Baladna.
+                      </p>
+                    </div>
+                  </div>
+                </body>
+                </html>
+                """.formatted(
+                title,
+                headerColor,
+                title,
+                fullName,
+                intro,
+                route,
+                departureDate,
+                reservation.getReservedSeats(),
+                reservation.getTotalPrice(),
+                boardingPoint,
+                statusSection
+        );
+    }
+
+    private String statusBox(String title, String subtitle, String borderColor, String backgroundColor) {
+        return """
+                <div style="margin-top:26px;padding:20px 24px;border:2px solid %s;background:%s;border-radius:16px;text-align:center;">
+                  <h3 style="margin:0 0 10px;font-size:18px;color:%s;">%s</h3>
+                  <p style="margin:0;font-size:15px;line-height:1.6;color:#7c2d12;">%s</p>
                 </div>
-                <p style="color:#374151">The seats have been released automatically. You can search for another available transport in Baladna.</p>
-                <p style="color:#9ca3af;font-size:12px;margin-top:32px;text-align:center">The Baladna Team 🌍</p>
-              </div>
-            </div>
-            """.formatted(name, route, route,
-                seats != null ? seats : 0,
-                boardingPoint != null ? boardingPoint : "N/A");
+                """.formatted(borderColor, backgroundColor, borderColor, title, subtitle);
+    }
+
+    private String getSafeFullName(Reservation reservation) {
+        String firstName = reservation.getUser().getFirstName() != null ? reservation.getUser().getFirstName().trim() : "";
+        String lastName = reservation.getUser().getLastName() != null ? reservation.getUser().getLastName().trim() : "";
+        String fullName = (firstName + " " + lastName).trim();
+        return fullName.isBlank() ? reservation.getUser().getEmail() : fullName;
+    }
+
+    private String getRoute(Reservation reservation) {
+        Transport transport = reservation.getTransport();
+        return transport.getTrajet().getDepartureStation().getName()
+                + " → " +
+                transport.getTrajet().getArrivalStation().getName();
     }
 }
