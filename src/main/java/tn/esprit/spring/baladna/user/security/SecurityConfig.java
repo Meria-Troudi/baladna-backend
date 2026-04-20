@@ -1,8 +1,9 @@
-package tn.esprit.spring.baladna.user.security;
+package tn.esprit.spring.baladna.user.security; 
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -21,7 +22,6 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
 
-
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
@@ -36,38 +36,18 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // ✅ Public event reservation endpoint
                         .requestMatchers("/api/events/event-reservation/confirmed-waitlisted").permitAll()
-
                         // ✅ Tout utilisateur connecté
                         .requestMatchers("/api/profile/**","/api/events/event-reservation/**","/api/forum/**").authenticated()
-                        // ✅ Public
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/login/oauth2/**",
-                                "/oauth2/**",
-                                "/api/events/**"
-                        ).permitAll()
-
-
-                        // ✅ ADMIN
-                        .requestMatchers(
-                                "/api/users/**",
-                                "/api/dashboard-admin/**"
-                        ).hasRole("ADMIN")
-
-                        // ✅ HOST
-                        .requestMatchers(
-                                "/api/create-event/**",
-                                "/api/create-accommodation/**"
-                        ).hasRole("HOST")
-
-                        // ✅ ARTISAN
-                        .requestMatchers(
-                                "/api/artisan/**"
-                        ).hasRole("ARTISAN")
-
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/events/**").permitAll()
+                        .requestMatchers("/api/chat/**").permitAll()  // Chat endpoints - includes /info, WebSocket SockJS paths, and all transports. JWT validation happens in WebSocket handshake interceptor
+                        .requestMatchers("/api/itineraries/calendar/auth-url").authenticated()
+                        .requestMatchers("/api/itineraries/calendar/oauth/callback").permitAll()  // OAuth callback from Google needs public access
+                        .requestMatchers("/api/itineraries/calendar/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/users/{id}").authenticated()
+                        .requestMatchers("/api/profile/**").authenticated()
                         .anyRequest().authenticated()
                 )
-
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -77,7 +57,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:4200"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS","PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
