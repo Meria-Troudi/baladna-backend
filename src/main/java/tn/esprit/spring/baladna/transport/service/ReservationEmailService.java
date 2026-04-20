@@ -29,7 +29,7 @@ public class ReservationEmailService {
     @Async
     public void sendPendingEmail(Reservation reservation) {
         String to = reservation.getUser().getEmail();
-        String subject = "Reservation Request Submitted — " + getRoute(reservation);
+        String subject = "⏳ Reservation Received — " + getRoute(reservation);
         String html = buildPendingHtml(reservation);
         sendHtmlEmail(to, subject, html);
     }
@@ -37,7 +37,7 @@ public class ReservationEmailService {
     @Async
     public void sendApprovalEmail(Reservation reservation) {
         String to = reservation.getUser().getEmail();
-        String subject = "Reservation Confirmed — " + getRoute(reservation);
+        String subject = "✅ Reservation Confirmed — " + getRoute(reservation);
         String html = buildApprovalHtml(reservation);
         sendHtmlEmail(to, subject, html);
     }
@@ -45,8 +45,16 @@ public class ReservationEmailService {
     @Async
     public void sendRejectionEmail(Reservation reservation) {
         String to = reservation.getUser().getEmail();
-        String subject = "Reservation Rejected — " + getRoute(reservation);
+        String subject = "❌ Reservation Rejected — " + getRoute(reservation);
         String html = buildRejectionHtml(reservation);
+        sendHtmlEmail(to, subject, html);
+    }
+
+    @Async
+    public void sendCancellationEmail(Reservation reservation) {
+        String to = reservation.getUser().getEmail();
+        String subject = "🚫 Reservation Cancelled — " + getRoute(reservation);
+        String html = buildCancellationHtml(reservation);
         sendHtmlEmail(to, subject, html);
     }
 
@@ -66,31 +74,81 @@ public class ReservationEmailService {
 
     private String buildPendingHtml(Reservation reservation) {
         return buildBaseTemplate(
-                "Reservation Request Submitted",
-                "Your reservation request has been received and is currently pending host approval.",
+                "⏳ Reservation Request Received",
+                "Your reservation request has been successfully received and is now waiting for host approval.",
                 reservation,
                 "#1d4ed8",
-                statusBox("Pending Approval", "You will receive another email as soon as the host responds.", "#f59e0b", "#fff7ed")
+                statusBox(
+                        "Pending Approval ⏳",
+                        "You will receive another email as soon as the host approves or rejects your request.",
+                        "#f59e0b",
+                        "#fff7ed",
+                        "#92400e"
+                ),
+                actionNote(
+                        "What happens next?",
+                        "The host will review your request. Once a decision is made, you will receive an updated confirmation email."
+                )
         );
     }
 
     private String buildApprovalHtml(Reservation reservation) {
         return buildBaseTemplate(
-                "Reservation Confirmed",
-                "Great news! Your reservation has been approved by the host.",
+                "✅ Reservation Confirmed",
+                "Great news! Your reservation has been approved by the host and your trip is now confirmed.",
                 reservation,
                 "#16a34a",
-                statusBox("Confirmed", "Your booking is now confirmed. You can access your QR code and PDF ticket from the application.", "#16a34a", "#f0fdf4")
+                statusBox(
+                        "Confirmed ✅",
+                        "Your booking is confirmed. You can now access your QR code and PDF ticket from the application.",
+                        "#16a34a",
+                        "#f0fdf4",
+                        "#166534"
+                ),
+                actionNote(
+                        "Next step",
+                        "Open the application to view your digital ticket, download your PDF copy, and get ready for departure."
+                )
         );
     }
 
     private String buildRejectionHtml(Reservation reservation) {
         return buildBaseTemplate(
-                "Reservation Rejected",
-                "Your reservation request has been rejected by the host.",
+                "❌ Reservation Rejected",
+                "Unfortunately, the host was unable to approve your reservation request.",
                 reservation,
                 "#dc2626",
-                statusBox("Rejected", "The reserved seats were released automatically. You may choose another transport from the application.", "#dc2626", "#fef2f2")
+                statusBox(
+                        "Rejected ❌",
+                        "The requested seats have been released automatically. You can try another departure from the application.",
+                        "#dc2626",
+                        "#fef2f2",
+                        "#991b1b"
+                ),
+                actionNote(
+                        "Need another trip?",
+                        "You can return to the app, browse available transports, and submit a new reservation request anytime."
+                )
+        );
+    }
+
+    private String buildCancellationHtml(Reservation reservation) {
+        return buildBaseTemplate(
+                "🚫 Reservation Cancelled",
+                "Your reservation has been cancelled successfully.",
+                reservation,
+                "#b45309",
+                statusBox(
+                        "Cancelled 🚫",
+                        "This booking is no longer active. The reserved seats were released back to availability.",
+                        "#b45309",
+                        "#fff7ed",
+                        "#92400e"
+                ),
+                actionNote(
+                        "Need a new booking?",
+                        "You can go back to the application and reserve another available transport whenever you want."
+                )
         );
     }
 
@@ -98,7 +156,8 @@ public class ReservationEmailService {
                                      String intro,
                                      Reservation reservation,
                                      String headerColor,
-                                     String statusSection) {
+                                     String statusSection,
+                                     String extraSection) {
 
         String fullName = getSafeFullName(reservation);
         String route = getRoute(reservation);
@@ -117,42 +176,43 @@ public class ReservationEmailService {
                   <meta name="viewport" content="width=device-width, initial-scale=1.0">
                   <title>%s</title>
                 </head>
-                <body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
-                  <div style="max-width:760px;margin:30px auto;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e5e7eb;">
-                    
-                    <div style="background:%s;padding:28px 32px;text-align:center;">
+                <body style="margin:0;padding:24px 12px;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+                  <div style="max-width:760px;margin:0 auto;background:#ffffff;border-radius:22px;overflow:hidden;border:1px solid #e5e7eb;box-shadow:0 12px 32px rgba(15,23,42,0.08);">
+
+                    <div style="background:%s;padding:30px 32px;text-align:center;">
+                      <div style="font-size:34px;line-height:1;margin-bottom:10px;">🚌</div>
                       <h1 style="margin:0;color:#ffffff;font-size:30px;font-weight:700;">%s</h1>
-                      <p style="margin:10px 0 0;color:#dbeafe;font-size:18px;">Baladna Transport</p>
+                      <p style="margin:10px 0 0;color:#dbeafe;font-size:17px;">Baladna Transport</p>
                     </div>
 
                     <div style="padding:34px 40px;">
                       <p style="margin:0 0 10px;font-size:16px;">Hello <strong>%s</strong>,</p>
-                      <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:#475569;">%s</p>
+                      <p style="margin:0 0 26px;font-size:15px;line-height:1.7;color:#475569;">%s</p>
 
-                      <div style="border:1px solid #e5e7eb;border-radius:16px;padding:24px 28px;background:#fafafa;">
+                      <div style="border:1px solid #e5e7eb;border-radius:18px;padding:24px 28px;background:#fafafa;">
                         <table style="width:100%%;border-collapse:collapse;">
                           <tr>
-                            <td style="padding:14px 0;color:#64748b;font-size:14px;width:34%%;">Route</td>
+                            <td style="padding:14px 0;color:#64748b;font-size:14px;width:34%%;">🛣️ Route</td>
                             <td style="padding:14px 0;font-size:16px;font-weight:700;color:#334155;">%s</td>
                           </tr>
                           <tr><td colspan="2" style="border-top:1px solid #e5e7eb;"></td></tr>
                           <tr>
-                            <td style="padding:14px 0;color:#64748b;font-size:14px;">Departure Date</td>
+                            <td style="padding:14px 0;color:#64748b;font-size:14px;">📅 Departure Date</td>
                             <td style="padding:14px 0;font-size:15px;font-weight:600;">%s</td>
                           </tr>
                           <tr><td colspan="2" style="border-top:1px solid #e5e7eb;"></td></tr>
                           <tr>
-                            <td style="padding:14px 0;color:#64748b;font-size:14px;">Requested Seats</td>
+                            <td style="padding:14px 0;color:#64748b;font-size:14px;">💺 Reserved Seats</td>
                             <td style="padding:14px 0;font-size:15px;font-weight:600;">%d</td>
                           </tr>
                           <tr><td colspan="2" style="border-top:1px solid #e5e7eb;"></td></tr>
                           <tr>
-                            <td style="padding:14px 0;color:#64748b;font-size:14px;">Total Price</td>
+                            <td style="padding:14px 0;color:#64748b;font-size:14px;">💰 Total Price</td>
                             <td style="padding:14px 0;font-size:15px;font-weight:700;">%.2f DT</td>
                           </tr>
                           <tr><td colspan="2" style="border-top:1px solid #e5e7eb;"></td></tr>
                           <tr>
-                            <td style="padding:14px 0;color:#64748b;font-size:14px;">Boarding Point</td>
+                            <td style="padding:14px 0;color:#64748b;font-size:14px;">📍 Boarding Point</td>
                             <td style="padding:14px 0;font-size:15px;font-weight:600;">%s</td>
                           </tr>
                         </table>
@@ -160,9 +220,13 @@ public class ReservationEmailService {
 
                       %s
 
-                      <p style="margin:28px 0 0;font-size:13px;color:#94a3b8;text-align:center;">
-                        Thank you for travelling with Baladna.
-                      </p>
+                      %s
+
+                      <div style="margin-top:30px;padding-top:18px;border-top:1px solid #e5e7eb;">
+                        <p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;">
+                          Thank you for travelling with Baladna 🌍
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </body>
@@ -178,17 +242,31 @@ public class ReservationEmailService {
                 reservation.getReservedSeats(),
                 reservation.getTotalPrice(),
                 boardingPoint,
-                statusSection
+                statusSection,
+                extraSection
         );
     }
 
-    private String statusBox(String title, String subtitle, String borderColor, String backgroundColor) {
+    private String statusBox(String title,
+                             String subtitle,
+                             String borderColor,
+                             String backgroundColor,
+                             String textColor) {
         return """
                 <div style="margin-top:26px;padding:20px 24px;border:2px solid %s;background:%s;border-radius:16px;text-align:center;">
                   <h3 style="margin:0 0 10px;font-size:18px;color:%s;">%s</h3>
-                  <p style="margin:0;font-size:15px;line-height:1.6;color:#7c2d12;">%s</p>
+                  <p style="margin:0;font-size:15px;line-height:1.6;color:%s;">%s</p>
                 </div>
-                """.formatted(borderColor, backgroundColor, borderColor, title, subtitle);
+                """.formatted(borderColor, backgroundColor, textColor, title, textColor, subtitle);
+    }
+
+    private String actionNote(String title, String text) {
+        return """
+                <div style="margin-top:18px;padding:18px 20px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;">
+                  <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#334155;">%s</p>
+                  <p style="margin:0;font-size:14px;line-height:1.6;color:#475569;">%s</p>
+                </div>
+                """.formatted(title, text);
     }
 
     private String getSafeFullName(Reservation reservation) {

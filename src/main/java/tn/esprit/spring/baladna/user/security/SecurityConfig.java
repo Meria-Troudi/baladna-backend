@@ -71,7 +71,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/reservations/pending").hasRole("HOST")
                         .requestMatchers(HttpMethod.POST, "/api/reservations/validate-ticket").hasRole("HOST")
                         .requestMatchers(HttpMethod.GET, "/api/reservations/**").hasRole("HOST")
-                        .requestMatchers(HttpMethod.DELETE, "/api/reservations/**").hasRole("HOST")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/reservations/**").hasAnyRole("HOST", "TOURIST")
 
                         .anyRequest().authenticated()
                 )

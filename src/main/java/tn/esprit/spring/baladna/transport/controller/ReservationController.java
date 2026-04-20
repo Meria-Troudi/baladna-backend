@@ -67,8 +67,6 @@ public class ReservationController {
                 .anyMatch(expected::equals);
     }
 
-    // --- LECTURE ---
-
     @GetMapping
     public List<ReservationDTO> getReservations(Authentication authentication) {
         List<Reservation> reservations;
@@ -112,8 +110,6 @@ public class ReservationController {
                 .collect(Collectors.toList());
     }
 
-    // --- ACTIONS TOURIST ---
-
     @PostMapping
     public ResponseEntity<?> makeReservation(@Valid @RequestBody ReservationRequestDTO request,
                                              Authentication authentication) {
@@ -140,8 +136,6 @@ public class ReservationController {
         }
     }
 
-    // --- ACTIONS HOST ---
-
     @PutMapping("/{id}/approve")
     public ResponseEntity<?> approveReservation(@PathVariable Long id, Authentication authentication) {
         try {
@@ -156,6 +150,16 @@ public class ReservationController {
     public ResponseEntity<?> rejectReservation(@PathVariable Long id, Authentication authentication) {
         try {
             Reservation reservation = reservationService.rejectReservation(id, authentication.getName());
+            return ResponseEntity.ok(toDTO(reservation));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}/board")
+    public ResponseEntity<?> markReservationAsBoarded(@PathVariable Long id, Authentication authentication) {
+        try {
+            Reservation reservation = reservationService.markAsBoarded(id, authentication.getName());
             return ResponseEntity.ok(toDTO(reservation));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -178,8 +182,16 @@ public class ReservationController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteReservation(@PathVariable Long id, Authentication authentication) {
-        reservationService.deleteReservation(id, authentication.getName());
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> deleteReservation(@PathVariable Long id, Authentication authentication) {
+        try {
+            if (hasRole(authentication, "TOURIST")) {
+                reservationService.deleteReservationForTourist(id, authentication.getName());
+            } else {
+                reservationService.deleteReservation(id, authentication.getName());
+            }
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }

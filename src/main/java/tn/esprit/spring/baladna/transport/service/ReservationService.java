@@ -237,7 +237,9 @@ public class ReservationService {
         Transport transport = reservation.getTransport();
         restoreSeatsToTransport(transport, reservation.getReservedSeats());
 
-        return reservationRepository.save(reservation);
+        Reservation saved = reservationRepository.save(reservation);
+        reservationEmailService.sendCancellationEmail(saved);
+        return saved;
     }
 
     @Transactional
@@ -260,6 +262,28 @@ public class ReservationService {
     }
 
     @Transactional
+    public void deleteReservationForTourist(Long id, String userEmail) {
+        Reservation reservation = getReservationById(id);
+
+        if (reservation == null) {
+            throw new RuntimeException("Reservation not found.");
+        }
+
+        if (reservation.getUser() == null
+                || reservation.getUser().getEmail() == null
+                || !reservation.getUser().getEmail().equalsIgnoreCase(userEmail)) {
+            throw new RuntimeException("You can only delete your own reservations.");
+        }
+
+        if (reservation.getStatus() != ReservationStatus.CANCELLED
+                && reservation.getStatus() != ReservationStatus.REJECTED) {
+            throw new RuntimeException("Only cancelled or rejected reservations can be deleted.");
+        }
+
+        reservationRepository.delete(reservation);
+    }
+
+    @Transactional
     public int expirePendingReservationsOlderThanHours(int hours) {
         LocalDateTime threshold = LocalDateTime.now().minusHours(hours);
 
@@ -272,7 +296,8 @@ public class ReservationService {
         for (Reservation reservation : expiredReservations) {
             reservation.setStatus(ReservationStatus.CANCELLED);
             restoreSeatsToTransport(reservation.getTransport(), reservation.getReservedSeats());
-            reservationRepository.save(reservation);
+            Reservation saved = reservationRepository.save(reservation);
+            reservationEmailService.sendCancellationEmail(saved);
         }
 
         return expiredReservations.size();
