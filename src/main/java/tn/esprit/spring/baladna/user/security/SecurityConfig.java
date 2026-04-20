@@ -3,6 +3,7 @@ package tn.esprit.spring.baladna.user.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -68,6 +69,7 @@ public class SecurityConfig {
 
                         // ✅ Tout utilisateur connecté
                         .requestMatchers("/api/profile/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/users/{id}").authenticated()
 
                         .anyRequest().authenticated()
                 )
