@@ -33,4 +33,11 @@ public class JwtService {
                 .getBody()
                 .getSubject();
     }
+    public Long extractUserId(String token) {
+        Claims claims = Jwts.parser()
+                .setSigningKey(secretKey)
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.get("userId", Long.class);
+    }
 }
