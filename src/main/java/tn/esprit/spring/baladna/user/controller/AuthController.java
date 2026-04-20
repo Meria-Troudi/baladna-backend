@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import tn.esprit.spring.baladna.user.dto.AuthResponse;
+import tn.esprit.spring.baladna.user.dto.FaceLoginRequest;
 import tn.esprit.spring.baladna.user.dto.LoginRequest;
 import tn.esprit.spring.baladna.user.dto.RefreshRequest;
 import tn.esprit.spring.baladna.user.dto.RegisterRequest;
@@ -35,6 +36,12 @@ public class AuthController {
     @PostMapping("/refresh-token")
     public ResponseEntity<AuthResponse> refresh(@RequestBody RefreshRequest request) {
         return ResponseEntity.ok(service.refreshToken(request));
+    }
+
+    // ✅ FACE LOGIN
+    @PostMapping("/face-login")
+    public ResponseEntity<AuthResponse> faceLogin(@RequestBody FaceLoginRequest request) {
+        return ResponseEntity.ok(service.faceLogin(request));
     }
 
     // ✅ LOGOUT

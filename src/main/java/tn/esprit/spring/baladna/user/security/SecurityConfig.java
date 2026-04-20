@@ -21,6 +21,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -34,14 +35,29 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/login/oauth2/**", "/oauth2/**").permitAll()
-                        .requestMatchers("/api/events/**").permitAll()
+
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/login/oauth2/**",
+                                "/oauth2/**",
+                                "/api/events/**",
+                                "/api/rh/interviews",
+                                "/api/rh/interviews/*",
+                                "/api/rh/apply"
+                        ).permitAll()
 
                         .requestMatchers("/api/profile/**").authenticated()
 
-                        .requestMatchers("/api/users/**").hasRole("ADMIN")
-                        .requestMatchers("/api/dashboard-admin/**").hasRole("ADMIN")
+                        .requestMatchers(
+                                "/api/users/**",
+                                "/api/dashboard-admin/**",
+                                "/api/rh/admin/**"
+                        ).hasRole("ADMIN")
+
+                        .requestMatchers(
+                                "/api/create-event/**",
+                                "/api/create-accommodation/**"
+                        ).hasRole("HOST")
 
                         .requestMatchers("/api/artisan/**").hasRole("ARTISAN")
 
@@ -64,19 +80,19 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/reservations/me").hasRole("TOURIST")
                         .requestMatchers(HttpMethod.POST, "/api/reservations").hasRole("TOURIST")
                         .requestMatchers(HttpMethod.PUT, "/api/reservations/*/cancel").hasRole("TOURIST")
-
                         .requestMatchers(HttpMethod.PUT, "/api/reservations/*/approve").hasRole("HOST")
                         .requestMatchers(HttpMethod.PUT, "/api/reservations/*/reject").hasRole("HOST")
-
                         .requestMatchers(HttpMethod.GET, "/api/reservations/pending").hasRole("HOST")
                         .requestMatchers(HttpMethod.POST, "/api/reservations/validate-ticket").hasRole("HOST")
                         .requestMatchers(HttpMethod.GET, "/api/reservations/**").hasRole("HOST")
-
                         .requestMatchers(HttpMethod.DELETE, "/api/reservations/**").hasAnyRole("HOST", "TOURIST")
 
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oAuth2SuccessHandler)
+                );
 
         return http.build();
     }
@@ -84,7 +100,6 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-
         config.setAllowedOrigins(List.of("http://localhost:4200"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
@@ -92,7 +107,6 @@ public class SecurityConfig {
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-
         return source;
     }
 }

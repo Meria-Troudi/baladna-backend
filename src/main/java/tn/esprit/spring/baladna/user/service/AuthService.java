@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import tn.esprit.spring.baladna.user.dto.AuthResponse;
+import tn.esprit.spring.baladna.user.dto.FaceLoginRequest;
 import tn.esprit.spring.baladna.user.dto.LoginRequest;
 import tn.esprit.spring.baladna.user.dto.RefreshRequest;
 import tn.esprit.spring.baladna.user.dto.RegisterRequest;
@@ -29,7 +30,6 @@ public class AuthService {
 
     public AuthResponse register(RegisterRequest request) {
 
-        // ✅ vérifier si email déjà utilisé
         if (userRepo.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email already in use");
         }
@@ -61,7 +61,14 @@ public class AuthService {
         return generateTokens(user);
     }
 
-    // ✅ REFRESH TOKEN
+    public AuthResponse faceLogin(FaceLoginRequest request) {
+        User user = userRepo.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        logService.log("FACE_LOGIN", user);
+        return generateTokens(user);
+    }
+
     public AuthResponse refreshToken(RefreshRequest request) {
 
         Session session = sessionRepo.findByToken(request.getRefreshToken())
@@ -81,7 +88,6 @@ public class AuthService {
                 .build();
     }
 
-    // ✅ LOGOUT
     public void logout(RefreshRequest request) {
         sessionRepo.findByToken(request.getRefreshToken())
                 .ifPresent(session -> {
@@ -90,7 +96,6 @@ public class AuthService {
                 });
     }
 
-    // ✅ une seule méthode generateTokens — la version dupliquée supprimée
     private AuthResponse generateTokens(User user) {
 
         String accessToken = jwtService.generateToken(user);
