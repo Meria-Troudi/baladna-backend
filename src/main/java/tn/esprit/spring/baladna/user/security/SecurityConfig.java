@@ -3,6 +3,7 @@ package tn.esprit.spring.baladna.user.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -39,6 +40,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/itineraries/calendar/auth-url").authenticated()
                         .requestMatchers("/api/itineraries/calendar/oauth/callback").permitAll()  // OAuth callback from Google needs public access
                         .requestMatchers("/api/itineraries/calendar/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/users/{id}").authenticated()
                         .requestMatchers("/api/profile/**").authenticated()
                         .anyRequest().authenticated()
                 )

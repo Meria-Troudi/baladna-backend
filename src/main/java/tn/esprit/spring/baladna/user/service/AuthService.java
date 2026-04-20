@@ -87,6 +87,7 @@ public class AuthService {
                 .accessToken(newAccessToken)
                 .refreshToken(session.getToken())
                 .role(session.getUser().getRole())
+                .id(session.getUser().getId())
                 .build();
     }
 
@@ -117,6 +118,10 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .role(user.getRole())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .id(user.getId())
                 .build();
     }
 }
