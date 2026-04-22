@@ -1,20 +1,33 @@
 package tn.esprit.spring.baladna.user.service;
 
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tn.esprit.spring.baladna.user.entity.User;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 
 @Service
 public class JwtService {
 
-    // Clé sécurisée générée automatiquement (256 bits garanti)
-    private final Key secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    private final Key secretKey;
+
+    public JwtService(@Value("${app.jwt.secret}") String secret) {
+        this.secretKey = Keys.hmacShaKeyFor(sha256(secret));
+    }
+
+    private static byte[] sha256(String secret) {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(secret.getBytes(StandardCharsets.UTF_8));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
 
     public String generateToken(User user) {
         return Jwts.builder()
@@ -32,12 +45,5 @@ public class JwtService {
                 .parseClaimsJws(token)
                 .getBody()
                 .getSubject();
-    }
-    public Long extractUserId(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(secretKey)
-                .parseClaimsJws(token)
-                .getBody();
-        return claims.get("userId", Long.class);
     }
 }

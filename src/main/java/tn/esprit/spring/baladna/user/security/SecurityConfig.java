@@ -21,7 +21,6 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
-    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
 
     @Bean
@@ -37,30 +36,35 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/error").permitAll()
+
                         // ✅ Public
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/login/oauth2/**",
                                 "/oauth2/**",
                                 "/api/events/**",
-                                "/api/rh/interviews",        // ✅ public
-                                "/api/rh/interviews/*",      // ✅ public
-                                "/api/rh/apply"
-
+                                "/api/accommodations/public/**",
+                                "/uploads/**"
                         ).permitAll()
 
                         // ✅ ADMIN
                         .requestMatchers(
                                 "/api/users/**",
-                                "/api/dashboard-admin/**",
-                                "/api/rh/admin/**"
+                                "/api/dashboard-admin/**"
                         ).hasRole("ADMIN")
 
                         // ✅ HOST
                         .requestMatchers(
-                                "/api/create-event/**",
-                                "/api/create-accommodation/**"
+                                "/api/create-event/**"
                         ).hasRole("HOST")
+
+                        .requestMatchers(HttpMethod.GET, "/api/accommodations/host/**").hasAnyRole("HOST", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/accommodations").hasAnyRole("HOST", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/accommodations/*/cover").hasAnyRole("HOST", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/accommodations/*").hasAnyRole("HOST", "ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/accommodations/*").hasAnyRole("HOST", "ADMIN")
 
                         // ✅ ARTISAN
                         .requestMatchers(
@@ -69,15 +73,11 @@ public class SecurityConfig {
 
                         // ✅ Tout utilisateur connecté
                         .requestMatchers("/api/profile/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/users/{id}").authenticated()
 
                         .anyRequest().authenticated()
                 )
 
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-                .oauth2Login(oauth2 -> oauth2
-                        .successHandler(oAuth2SuccessHandler)
-                );
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -86,7 +86,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:4200"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

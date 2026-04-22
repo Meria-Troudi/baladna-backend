@@ -49,26 +49,24 @@ public class JwtFilter extends OncePerRequestFilter {
 
             String email = jwtService.extractEmail(token);
 
-            if(email != null &&
-                    SecurityContextHolder.getContext().getAuthentication() == null){
-
+            // Always bind the JWT user to the security context when the token is valid.
+            // Do not skip when getAuthentication() is non-null — a stale context could block HOST access.
+            if (email != null) {
                 User user = userRepo.findByEmail(email).orElseThrow();
-                Long userId = jwtService.extractUserId(token);
-
                 String role = user.getRole().name();
-
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(
                                 user.getEmail(),
                                 null,
                                 List.of(new SimpleGrantedAuthority("ROLE_" + role))
                         );
-                authToken.setDetails(userId);
-
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
-        } catch (Exception ignored) {
-            // Ignore invalid/expired token and continue the chain.
+        } catch (Exception e) {
+            // Bad/expired signature (e.g. after server restart with old random key), or unknown user.
+            // Respond 401 so the client can refresh the access token instead of failing as anonymous (403).
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
         }
 
         filterChain.doFilter(request, response);

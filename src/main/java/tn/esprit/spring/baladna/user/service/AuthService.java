@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import tn.esprit.spring.baladna.user.dto.AuthResponse;
-import tn.esprit.spring.baladna.user.dto.FaceLoginRequest;
 import tn.esprit.spring.baladna.user.dto.LoginRequest;
 import tn.esprit.spring.baladna.user.dto.RefreshRequest;
 import tn.esprit.spring.baladna.user.dto.RegisterRequest;
@@ -62,14 +61,6 @@ public class AuthService {
         return generateTokens(user);
     }
 
-    public AuthResponse faceLogin(FaceLoginRequest request) {
-        User user = userRepo.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        logService.log("FACE_LOGIN", user);
-        return generateTokens(user);
-    }
-
     // ✅ REFRESH TOKEN
     public AuthResponse refreshToken(RefreshRequest request) {
 
@@ -87,7 +78,6 @@ public class AuthService {
                 .accessToken(newAccessToken)
                 .refreshToken(session.getToken())
                 .role(session.getUser().getRole())
-                .id(session.getUser().getId())
                 .build();
     }
 
@@ -118,10 +108,6 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .role(user.getRole())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .email(user.getEmail())
-                .id(user.getId())
                 .build();
     }
 }

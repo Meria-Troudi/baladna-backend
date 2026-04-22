@@ -30,7 +30,7 @@ public class UserController {
     }
 
     @GetMapping("/api/users/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('TOURIST')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<User> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
