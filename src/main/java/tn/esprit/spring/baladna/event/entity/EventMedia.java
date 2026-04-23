@@ -1,5 +1,6 @@
 package tn.esprit.spring.baladna.event.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import tn.esprit.spring.baladna.event.entity.enums.MediaType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -19,6 +20,7 @@ public class EventMedia {
 
     @ManyToOne
     @JoinColumn(name = "event_id")
+    @JsonBackReference("event-media")
     private Event event;
 
     @Column(columnDefinition = "TEXT")

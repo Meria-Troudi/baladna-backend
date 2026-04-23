@@ -1,26 +1,27 @@
 package tn.esprit.spring.baladna.event.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
+@Builder
+
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class EventDTO {
+    private Long id;
     private String title;
     private String description;
-    private Long categoryId;       // Send categoryId instead of nested object
+    private String location;
+    private String category;
     private LocalDateTime startAt;
     private LocalDateTime endAt;
-    private String location;
+    private String status;
+    private Integer capacity;
+    private Integer remainingSeats;
+    private BigDecimal price;
     private Double latitude;
     private Double longitude;
-    private Integer capacity;
-    private Double price;
-    private Long createdByUserId;  // Keep as Long for now
 }

@@ -71,6 +71,16 @@ public class SecurityConfig {
                                 "/api/artisan/**"
                         ).hasRole("ARTISAN")
 
+                        // Itinéraire / Google Calendar (callback public)
+                        .requestMatchers("/api/itineraries/calendar/oauth/callback").permitAll()
+                        .requestMatchers("/api/itineraries/calendar/auth-url").authenticated()
+                        .requestMatchers("/api/itineraries/calendar/**").authenticated()
+
+                        .requestMatchers(HttpMethod.GET, "/api/users/{id}").authenticated()
+
+                        // Forum événements
+                        .requestMatchers("/api/forum/**").authenticated()
+
                         // ✅ Tout utilisateur connecté
                         .requestMatchers("/api/profile/**").authenticated()
 
@@ -86,7 +96,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:4200"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

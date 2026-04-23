@@ -1,7 +1,10 @@
 package tn.esprit.spring.baladna.event.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import tn.esprit.spring.baladna.event.entity.enums.EventStatus;
+import tn.esprit.spring.baladna.event.entity.enums.EventCategory;
+import tn.esprit.spring.baladna.event.entity.EventMedia;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
@@ -32,8 +35,8 @@ public class Event {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @ManyToOne
-    @JoinColumn(name = "category_id")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", nullable = false)
     private EventCategory category;
 
     private LocalDateTime startAt;
@@ -64,8 +67,13 @@ public class Event {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "event")
-    @JsonManagedReference("event-reservation")
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     @Builder.Default
     private List<EventReservation> reservations = new ArrayList<>();
+
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference("event-media")
+    @Builder.Default
+    private List<EventMedia> media = new ArrayList<>();
 }
