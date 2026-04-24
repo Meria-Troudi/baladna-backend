@@ -4,6 +4,7 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import tn.esprit.spring.baladna.event.entity.enums.MediaType;
@@ -12,6 +13,7 @@ import java.io.IOException;
 import java.util.Map;
 
 @Service
+@ConditionalOnProperty(name = "cloudinary.enabled", havingValue = "true")
 public class CloudinaryService {
 
     @Autowired

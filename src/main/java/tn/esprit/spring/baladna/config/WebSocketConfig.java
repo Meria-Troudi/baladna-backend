@@ -33,7 +33,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/api/chat")
                 .addInterceptors(handshakeInterceptor)
-                .setAllowedOriginPatterns("http://localhost:4200")
+                .setAllowedOriginPatterns("http://localhost:*", "http://127.0.0.1:*")
                 .withSockJS();
     }
 

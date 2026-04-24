@@ -2,6 +2,7 @@ package tn.esprit.spring.baladna.event.forum.service;
 
 import com.cloudinary.Cloudinary;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -9,6 +10,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "cloudinary.enabled", havingValue = "true")
 public class MediaUploadService {
 
     private final Cloudinary cloudinary;

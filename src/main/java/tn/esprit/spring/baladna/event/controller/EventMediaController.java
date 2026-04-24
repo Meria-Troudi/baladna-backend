@@ -1,6 +1,7 @@
 package tn.esprit.spring.baladna.event.controller;
 
-import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@AllArgsConstructor
 @RestController
 @RequestMapping("/api/events")
 public class EventMediaController {
@@ -30,6 +30,17 @@ public class EventMediaController {
     private final EventService eventService;
     private final EventMediaRepository mediaRepository;
     private final CloudinaryService cloudinaryService;
+
+    public EventMediaController(
+            IEventMediaService mediaService,
+            EventService eventService,
+            EventMediaRepository mediaRepository,
+            @Autowired(required = false) CloudinaryService cloudinaryService) {
+        this.mediaService = mediaService;
+        this.eventService = eventService;
+        this.mediaRepository = mediaRepository;
+        this.cloudinaryService = cloudinaryService;
+    }
 
     @GetMapping("/event-media/list")
     public List<EventMedia> retrieveEventMedias() {
@@ -70,14 +81,19 @@ public class EventMediaController {
             @RequestParam("files") List<MultipartFile> files,
             @RequestParam(value = "coverIndex", required = false, defaultValue = "0") int coverIndex,
             @RequestParam(value = "order", required = false) String orderJson) {
-        
+
+        if (cloudinaryService == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body("Cloudinary is disabled. Set cloudinary.enabled=true and configure cloudinary.cloud-name, api-key, api-secret.");
+        }
+
         try {
             // Get the event
             Event event = eventService.retrieveEvent(eventId);
             if (event == null) {
                 return ResponseEntity.badRequest().body("Event not found");
             }
-            
+
             // Parse order if provided (simple parsing without Jackson)
             List<Integer> order = new ArrayList<>();
             if (orderJson != null && !orderJson.isEmpty()) {
@@ -91,16 +107,16 @@ public class EventMediaController {
                             .collect(Collectors.toList());
                 }
             }
-            
+
             List<EventMedia> savedMedia = new ArrayList<>();
-            
+
             for (int i = 0; i < files.size(); i++) {
                 MultipartFile file = files.get(i);
-                
+
                 // Upload to Cloudinary
                 String cloudinaryUrl = cloudinaryService.uploadFile(file);
                 MediaType mediaType = cloudinaryService.getMediaType(file);
-                
+
                 // Create EventMedia entity
                 EventMedia media = EventMedia.builder()
                         .event(event)
@@ -109,10 +125,10 @@ public class EventMediaController {
                         .isCover(i == coverIndex)
                         .orderIndex(order.isEmpty() ? i : order.get(i))
                         .build();
-                
+
                 savedMedia.add(mediaRepository.save(media));
             }
-            
+
             // Return a clean response
             List<Map<String, Object>> response = new ArrayList<>();
             for (EventMedia m : savedMedia) {
@@ -125,9 +141,9 @@ public class EventMediaController {
                 mediaMap.put("eventId", m.getEvent().getId());
                 response.add(mediaMap);
             }
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (IOException e) {
@@ -143,17 +159,17 @@ public class EventMediaController {
         try {
             EventMedia media = mediaRepository.findById(mediaId)
                     .orElseThrow(() -> new RuntimeException("Media not found"));
-            
+
             // Extract public ID from Cloudinary URL (simplified - you may need to adjust)
             // Cloudinary URLs are like: https://res.cloudinary.com/dsc0lmdgm/image/upload/v1234567890/baladna_events/abc123.jpg
             // The public ID would be: baladna_events/abc123
-            
+
             // Delete from Cloudinary (optional - you might want to keep files)
             // cloudinaryService.deleteFile(publicId);
-            
+
             // Delete from database
             mediaRepository.delete(media);
-            
+
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Error deleting media: " + e.getMessage());
@@ -192,4 +208,4 @@ public class EventMediaController {
             return ResponseEntity.internalServerError().body("Error updating media order: " + e.getMessage());
         }
     }
-    }
+}

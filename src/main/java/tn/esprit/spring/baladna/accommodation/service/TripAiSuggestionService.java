@@ -7,9 +7,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
+
+import java.net.URI;
+import java.net.URISyntaxException;
 import tn.esprit.spring.baladna.accommodation.dto.AccommodationResponseDto;
 import tn.esprit.spring.baladna.accommodation.dto.TripSuggestionResponseDto;
 
@@ -27,15 +30,20 @@ public class TripAiSuggestionService {
     private final AccommodationService accommodationService;
     private final ObjectMapper objectMapper;
 
-    @Value("${app.ai.gemini-api-key:}")
-    private String geminiApiKey;
+    @Value("${app.ai.ollama-base-url:http://127.0.0.1:11434}")
+    private String ollamaBaseUrl;
 
-    @Value("${app.ai.gemini-model:gemini-2.0-flash}")
-    private String geminiModel;
+    @Value("${app.ai.ollama-model:qwen2.5:7b-instruct}")
+    private String ollamaModel;
 
-    private final RestClient geminiClient = RestClient.builder()
-            .baseUrl("https://generativelanguage.googleapis.com")
-            .build();
+    private final RestClient ollamaClient = createOllamaRestClient();
+
+    private static RestClient createOllamaRestClient() {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(10_000);
+        requestFactory.setReadTimeout(120_000);
+        return RestClient.builder().requestFactory(requestFactory).build();
+    }
 
     public TripSuggestionResponseDto suggest(String rawDescription) {
         String description = rawDescription == null ? "" : rawDescription.trim();
@@ -56,20 +64,17 @@ public class TripAiSuggestionService {
                     .build();
         }
 
-        if (geminiApiKey != null && !geminiApiKey.isBlank()) {
-            try {
-                return suggestWithGemini(description, catalog);
-            } catch (Exception e) {
-                log.warn("Gemini suggestion failed, using keyword fallback: {}", e.getMessage());
-            }
+        try {
+            return suggestWithOllama(description, catalog);
+        } catch (Exception e) {
+            log.warn("Ollama suggestion failed, using keyword fallback", e);
         }
 
-        return keywordFallback(description, catalog, geminiApiKey == null || geminiApiKey.isBlank()
-                ? "Matched keywords from your text (add a free Gemini API key in application.properties for smarter picks)."
-                : "Matched keywords from your text (AI call failed; check logs).");
+        return keywordFallback(description, catalog,
+                "Matched keywords from your text (AI unavailable; ensure Ollama is running locally).");
     }
 
-    private TripSuggestionResponseDto suggestWithGemini(String description, List<AccommodationResponseDto> catalog)
+    private TripSuggestionResponseDto suggestWithOllama(String description, List<AccommodationResponseDto> catalog)
             throws Exception {
         String safeDesc = description.replace('\n', ' ').replace('\r', ' ').trim();
 
@@ -92,33 +97,29 @@ public class TripAiSuggestionService {
                 If nothing fits well, still pick the closest listings and say so in "note".
                 """.formatted(escapeJsonString(safeDesc), catalogJson, MAX_RESULTS);
 
-        Map<String, Object> generationConfig = new LinkedHashMap<>();
-        generationConfig.put("temperature", 0.25);
-        generationConfig.put("maxOutputTokens", 1024);
-        generationConfig.put("responseMimeType", "application/json");
-
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
-        body.put("generationConfig", generationConfig);
+        body.put("model", ollamaModel);
+        body.put("prompt", prompt);
+        body.put("stream", false);
+        body.put("format", "json");
+        body.put("options", Map.of("temperature", 0.25));
 
-        String path = "/v1beta/models/" + geminiModel + ":generateContent";
-        JsonNode root = geminiClient.post()
-                .uri(uriBuilder -> uriBuilder
-                        .path(path)
-                        .queryParam("key", geminiApiKey.trim())
-                        .build())
+        // Ollama returns JSON; read as String then parse — RestClient + Jackson 3 cannot bind JsonNode.class here.
+        String raw = ollamaClient.post()
+                .uri(ollamaGenerateUri())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .retrieve()
-                .body(JsonNode.class);
+                .body(String.class);
 
-        if (root == null) {
-            throw new IllegalStateException("Empty Gemini response");
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalStateException("Empty Ollama response");
         }
 
-        String text = extractGeminiText(root);
+        JsonNode root = objectMapper.readTree(raw);
+        String text = root.path("response").asText(null);
         if (text == null || text.isBlank()) {
-            throw new IllegalStateException("No text in Gemini response");
+            throw new IllegalStateException("No text in Ollama response");
         }
 
         text = stripMarkdownJsonFence(text);
@@ -156,8 +157,33 @@ public class TripAiSuggestionService {
         return TripSuggestionResponseDto.builder()
                 .accommodations(ordered)
                 .note(note)
-                .mode("gemini")
+                .mode("ollama")
                 .build();
+    }
+
+    /**
+     * Prefer IPv4 loopback: on many Windows setups {@code localhost} resolves to {@code ::1} first while Ollama
+     * listens on IPv4 only, which causes long connection delays then failure.
+     */
+    private URI ollamaGenerateUri() throws URISyntaxException {
+        String base = (ollamaBaseUrl == null || ollamaBaseUrl.isBlank())
+                ? "http://127.0.0.1:11434"
+                : ollamaBaseUrl.trim();
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        URI uri = URI.create(base + "/api/generate");
+        if ("localhost".equalsIgnoreCase(uri.getHost())) {
+            return new URI(
+                    uri.getScheme(),
+                    uri.getUserInfo(),
+                    "127.0.0.1",
+                    uri.getPort(),
+                    uri.getPath(),
+                    uri.getQuery(),
+                    uri.getFragment());
+        }
+        return uri;
     }
 
     private static String stripMarkdownJsonFence(String text) {
@@ -173,18 +199,6 @@ public class TripAiSuggestionService {
             }
         }
         return t.trim();
-    }
-
-    private static String extractGeminiText(JsonNode root) {
-        JsonNode candidates = root.path("candidates");
-        if (!candidates.isArray() || candidates.isEmpty()) {
-            return null;
-        }
-        JsonNode parts = candidates.get(0).path("content").path("parts");
-        if (!parts.isArray() || parts.isEmpty()) {
-            return null;
-        }
-        return parts.get(0).path("text").asText(null);
     }
 
     private String buildCompactCatalogJson(List<AccommodationResponseDto> slice) throws Exception {

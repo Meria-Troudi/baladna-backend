@@ -12,6 +12,6 @@ public class TripSuggestionResponseDto {
     private List<AccommodationResponseDto> accommodations;
     /** Short explanation for the traveler. */
     private String note;
-    /** "gemini" if Google AI was used, "keyword" for free local matching. */
+    /** "ollama" if local AI was used, "keyword" for fallback matching. */
     private String mode;
 }
