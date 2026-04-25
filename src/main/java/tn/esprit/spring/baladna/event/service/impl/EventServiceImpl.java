@@ -16,7 +16,24 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public List<Event> retrieveEvents() {
-        return eventRepository.findAll();
+        List<Event> events = eventRepository.findAll();
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        for (Event event : events) {
+            if (event.getStartAt() != null) {
+                if (event.getStartAt().isAfter(now)) {
+                    if (event.getStatus() != tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING) {
+                        event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING);
+                        eventRepository.save(event);
+                    }
+                } else {
+                    if (event.getStatus() != tn.esprit.spring.baladna.event.entity.enums.EventStatus.FINISHED) {
+                        event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.FINISHED);
+                        eventRepository.save(event);
+                    }
+                }
+            }
+        }
+        return events;
     }
 
     @Override
@@ -82,8 +99,14 @@ public class EventServiceImpl implements EventService {
         event.setLocation(dto.getLocation());
         event.setStartAt(dto.getStartAt());
         event.setEndAt(dto.getEndAt());
-        // Handle status conversion with fallback
-        if (dto.getStatus() != null) {
+// Auto-update status based on start date
+        if (dto.getStartAt() != null) {
+            if (dto.getStartAt().isAfter(java.time.LocalDateTime.now())) {
+                event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING);
+            } else {
+                event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.FINISHED);
+            }
+        } else if (dto.getStatus() != null) {
             try {
                 event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.valueOf(dto.getStatus().toUpperCase()));
             } catch (IllegalArgumentException e) {
@@ -135,21 +158,21 @@ public class EventServiceImpl implements EventService {
     public List<Event> getEventsWithMedia() {
         // Fallback: return all events with non-empty media list
         return eventRepository.findAll().stream()
-            .filter(e -> e.getMedia() != null && !e.getMedia().isEmpty())
-            .toList();
+                .filter(e -> e.getMedia() != null && !e.getMedia().isEmpty())
+                .toList();
     }
 
     @Override
     public List<Event> getEventsByStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus status) {
         return eventRepository.findAll().stream()
-            .filter(e -> e.getStatus() == status)
-            .toList();
+                .filter(e -> e.getStatus() == status)
+                .toList();
     }
 
     @Override
     public List<Event> getUpcomingEvents() {
         return eventRepository.findAll().stream()
-            .filter(e -> e.getStatus() == tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING)
-            .toList();
+                .filter(e -> e.getStatus() == tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING)
+                .toList();
     }
 }

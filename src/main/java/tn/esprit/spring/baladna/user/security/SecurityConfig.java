@@ -46,6 +46,17 @@ public class SecurityConfig {
                         .requestMatchers("/api/itineraries/calendar/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/users/{id}").authenticated()
                         .requestMatchers("/api/profile/**").authenticated()
+                        // ✅ HOST
+                        .requestMatchers(
+                                "/api/create-event/**"
+                        ).hasRole("HOST")
+
+                        .requestMatchers(HttpMethod.GET, "/api/accommodations/host/**").hasAnyRole("HOST", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/accommodations").hasAnyRole("HOST", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/accommodations/*/cover").hasAnyRole("HOST", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/accommodations/*").hasAnyRole("HOST", "ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/accommodations/*").hasAnyRole("HOST", "ADMIN")
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
