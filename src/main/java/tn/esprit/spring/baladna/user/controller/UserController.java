@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import tn.esprit.spring.baladna.user.dto.ChangePasswordRequest;
 import tn.esprit.spring.baladna.user.dto.UpdateProfileRequest;
 import tn.esprit.spring.baladna.user.dto.UpdateRoleRequest;
@@ -12,6 +13,7 @@ import tn.esprit.spring.baladna.user.dto.UpdateStatusRequest;
 import tn.esprit.spring.baladna.user.entity.*;
 import tn.esprit.spring.baladna.user.service.UserService;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -133,6 +135,24 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Long>> getUserStats() {
         return ResponseEntity.ok(userService.getUserStats());
+    }
+
+
+
+
+    @PostMapping("/api/profile/me/photo")
+    public ResponseEntity<String> uploadPhoto(
+            @AuthenticationPrincipal String email,
+            @RequestParam("photo") MultipartFile photo) throws IOException {
+        String photoPath = userService.uploadPhoto(email, photo);
+        return ResponseEntity.ok(photoPath);
+    }
+
+    @DeleteMapping("/api/profile/me/photo")
+    public ResponseEntity<String> deletePhoto(
+            @AuthenticationPrincipal String email) {
+        userService.deletePhoto(email);
+        return ResponseEntity.ok("Photo supprimée");
     }
 
 }

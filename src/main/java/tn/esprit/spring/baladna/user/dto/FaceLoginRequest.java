@@ -4,5 +4,5 @@ import lombok.Data;
 
 @Data
 public class FaceLoginRequest {
-    private String email;
+    private String image;  // Image en base64
 }

@@ -45,7 +45,8 @@ public class SecurityConfig {
                                 "/api/events/**",
                                 "/api/rh/interviews",        // ✅ public
                                 "/api/rh/interviews/*",      // ✅ public
-                                "/api/rh/apply"
+                                "/api/rh/apply",
+                                "/uploads/photos/**"
 
                         ).permitAll()
 

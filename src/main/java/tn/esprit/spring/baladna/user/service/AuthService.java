@@ -1,8 +1,12 @@
 package tn.esprit.spring.baladna.user.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import tn.esprit.spring.baladna.user.dto.AuthResponse;
 import tn.esprit.spring.baladna.user.dto.FaceLoginRequest;
 import tn.esprit.spring.baladna.user.dto.LoginRequest;
@@ -16,6 +20,7 @@ import tn.esprit.spring.baladna.user.repository.SessionRepository;
 import tn.esprit.spring.baladna.user.repository.UserRepository;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -63,11 +68,34 @@ public class AuthService {
     }
 
     public AuthResponse faceLogin(FaceLoginRequest request) {
-        User user = userRepo.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        // ✅ Appeler l'API Python pour reconnaître le visage
+        String pythonApiUrl = "http://localhost:8000/recognize";
 
-        logService.log("FACE_LOGIN", user);
-        return generateTokens(user);
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, String> body = Map.of("image", request.getImage());
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(body, headers);
+
+        try {
+            Map<String, Object> response = restTemplate.postForObject(pythonApiUrl, entity, Map.class);
+            String recognizedName = (String) response.get("name");
+
+            if (recognizedName == null || recognizedName.equals("Unknown") || recognizedName.contains("Error")) {
+                throw new RuntimeException("Visage non reconnu");
+            }
+
+            // ✅ Rechercher l'utilisateur par email (le nom dans faces.json est l'email)
+            User user = userRepo.findByEmail(recognizedName)
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé: " + recognizedName));
+
+            logService.log("FACE_LOGIN", user);
+            return generateTokens(user);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur reconnaissance faciale: " + e.getMessage());
+        }
     }
 
     // ✅ REFRESH TOKEN
