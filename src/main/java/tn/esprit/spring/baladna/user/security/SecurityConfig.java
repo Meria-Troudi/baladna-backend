@@ -4,15 +4,17 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
+import org.springframework.http.MediaType;
 import java.util.List;
 
 @Configuration
@@ -31,6 +33,20 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
+
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.getWriter().write("{\"message\":\"Unauthorized\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpStatus.FORBIDDEN.value());
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.getWriter().write("{\"message\":\"Access denied\"}");
+                        })
+                )
+
                 .authorizeHttpRequests(auth -> auth
 
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -71,6 +87,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/trajets/**").hasRole("HOST")
                         .requestMatchers(HttpMethod.DELETE, "/api/trajets/**").hasRole("HOST")
 
+                        .requestMatchers(HttpMethod.GET, "/api/transports/ai/report").hasRole("HOST")
+                        .requestMatchers(HttpMethod.GET, "/api/transports/ai/alerts").hasRole("HOST")
+                        .requestMatchers(HttpMethod.GET, "/api/transports/ai/model/summary").hasRole("HOST")
+                        .requestMatchers(HttpMethod.POST, "/api/transports/ai/model/train").hasRole("HOST")
+                        .requestMatchers(HttpMethod.POST, "/api/transports/ai/dataset/**").hasRole("HOST")
+                        .requestMatchers(HttpMethod.GET, "/api/transports/ai/dataset/**").hasRole("HOST")
+                        .requestMatchers(HttpMethod.GET, "/api/transports/ai/delay-prediction/**").hasAnyRole("HOST", "TOURIST")
+                        .requestMatchers(HttpMethod.GET, "/api/transports/ai/recommendation").authenticated()
+
                         .requestMatchers(HttpMethod.GET, "/api/transports/**").hasAnyRole("HOST", "TOURIST")
                         .requestMatchers(HttpMethod.POST, "/api/transports/**").hasRole("HOST")
                         .requestMatchers(HttpMethod.PUT, "/api/transports/**").hasRole("HOST")
@@ -82,6 +107,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/reservations/*/cancel").hasRole("TOURIST")
                         .requestMatchers(HttpMethod.PUT, "/api/reservations/*/approve").hasRole("HOST")
                         .requestMatchers(HttpMethod.PUT, "/api/reservations/*/reject").hasRole("HOST")
+                        .requestMatchers(HttpMethod.PUT, "/api/reservations/*/board").hasRole("HOST")
                         .requestMatchers(HttpMethod.GET, "/api/reservations/pending").hasRole("HOST")
                         .requestMatchers(HttpMethod.POST, "/api/reservations/validate-ticket").hasRole("HOST")
                         .requestMatchers(HttpMethod.GET, "/api/reservations/**").hasRole("HOST")
@@ -90,6 +116,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable())
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2SuccessHandler)
                 );

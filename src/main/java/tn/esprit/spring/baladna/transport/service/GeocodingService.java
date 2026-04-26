@@ -14,6 +14,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import tn.esprit.spring.baladna.transport.dto.GeoLocationDTO;
 
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -314,12 +315,15 @@ public class GeocodingService {
     }
 
     private String normalizeText(String value) {
-        return value == null ? "" : value
+        if (value == null) {
+            return "";
+        }
+
+        String normalized = Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "");
+
+        return normalized
                 .toLowerCase(Locale.ROOT)
-                .replace('é', 'e')
-                .replace('è', 'e')
-                .replace('ê', 'e')
-                .replace('à', 'a')
                 .replaceAll("[^a-z0-9\\s]", " ")
                 .replaceAll("\\s+", " ")
                 .trim();

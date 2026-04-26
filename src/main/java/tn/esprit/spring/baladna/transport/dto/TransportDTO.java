@@ -2,6 +2,7 @@ package tn.esprit.spring.baladna.transport.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.*;
+import tn.esprit.spring.baladna.transport.entity.TrafficCongestionLevel;
 import tn.esprit.spring.baladna.transport.entity.TransportStatus;
 import tn.esprit.spring.baladna.transport.entity.WeatherCondition;
 
@@ -39,6 +40,7 @@ public class TransportDTO {
     private Double basePrice;
 
     private Boolean trafficJam;
+    private TrafficCongestionLevel trafficCongestionLevel;
 
     @NotNull(message = "La condition météo est obligatoire")
     private WeatherCondition weather;
@@ -55,4 +57,7 @@ public class TransportDTO {
     private String trajetDescription;
 
     private Integer delayMinutes;
+
+    @Min(value = 0, message = "Le retard reel ne peut pas etre negatif")
+    private Integer actualDelayMinutes;
 }

@@ -23,6 +23,7 @@ public class ReservationService {
     private final TransportRepository transportRepository;
     private final UserRepository userRepository;
     private final ReservationEmailService reservationEmailService;
+    private final TransportAiDatasetService transportAiDatasetService;
 
     public List<Reservation> getAllReservations() {
         return reservationRepository.findAll();
@@ -65,7 +66,8 @@ public class ReservationService {
 
     @Transactional
     public Reservation makeReservation(Long transportId, String userEmail,
-                                       String boardingPoint, Integer seatsCount) {
+                                       String boardingPoint, Integer seatsCount,
+                                       Long recommendationFeedbackId) {
 
         Transport transport = transportRepository.findByIdForUpdate(transportId)
                 .orElseThrow(() -> new RuntimeException("Transport not found."));
@@ -142,6 +144,10 @@ public class ReservationService {
         transportRepository.save(transport);
 
         Reservation saved = reservationRepository.save(reservation);
+        transportAiDatasetService.syncTransportTripDataset(transport);
+        if (transport.getHost() != null && transport.getHost().getEmail() != null) {
+            transportAiDatasetService.markRecommendationBooked(recommendationFeedbackId, userEmail, saved);
+        }
         reservationEmailService.sendPendingEmail(saved);
 
         return saved;
@@ -159,6 +165,7 @@ public class ReservationService {
 
         reservation.setStatus(ReservationStatus.CONFIRMED);
         Reservation saved = reservationRepository.save(reservation);
+        transportAiDatasetService.syncTransportTripDataset(reservation.getTransport());
         reservationEmailService.sendApprovalEmail(saved);
         return saved;
     }
@@ -179,6 +186,7 @@ public class ReservationService {
         restoreSeatsToTransport(transport, reservation.getReservedSeats());
 
         Reservation saved = reservationRepository.save(reservation);
+        transportAiDatasetService.syncTransportTripDataset(transport);
         reservationEmailService.sendRejectionEmail(saved);
         return saved;
     }
@@ -203,7 +211,9 @@ public class ReservationService {
         }
 
         reservation.setStatus(ReservationStatus.BOARDED);
-        return reservationRepository.save(reservation);
+        Reservation saved = reservationRepository.save(reservation);
+        transportAiDatasetService.syncTransportTripDataset(reservation.getTransport());
+        return saved;
     }
 
     @Transactional
@@ -238,6 +248,7 @@ public class ReservationService {
         restoreSeatsToTransport(transport, reservation.getReservedSeats());
 
         Reservation saved = reservationRepository.save(reservation);
+        transportAiDatasetService.syncTransportTripDataset(transport);
         reservationEmailService.sendCancellationEmail(saved);
         return saved;
     }
@@ -250,15 +261,19 @@ public class ReservationService {
             throw new RuntimeException("Reservation not found.");
         }
 
-        boolean occupiesSeats = reservation.getStatus() != ReservationStatus.CANCELLED
-                && reservation.getStatus() != ReservationStatus.REJECTED;
-
-        if (occupiesSeats) {
-            Transport transport = reservation.getTransport();
-            restoreSeatsToTransport(transport, reservation.getReservedSeats());
+        if (reservation.getStatus() == ReservationStatus.BOARDED) {
+            throw new RuntimeException("Boarded reservations cannot be deleted. Keep them as trip history.");
         }
 
-        reservationRepository.delete(reservation);
+        if (reservation.getStatus() != ReservationStatus.CANCELLED
+                && reservation.getStatus() != ReservationStatus.REJECTED) {
+            Transport transport = reservation.getTransport();
+            restoreSeatsToTransport(transport, reservation.getReservedSeats());
+            transportAiDatasetService.syncTransportTripDataset(transport);
+        }
+
+        reservation.setStatus(ReservationStatus.CANCELLED);
+        reservationRepository.save(reservation);
     }
 
     @Transactional
@@ -280,6 +295,7 @@ public class ReservationService {
             throw new RuntimeException("Only cancelled or rejected reservations can be deleted.");
         }
 
+        transportAiDatasetService.cleanupReservationReferences(reservation.getId());
         reservationRepository.delete(reservation);
     }
 
@@ -297,6 +313,7 @@ public class ReservationService {
             reservation.setStatus(ReservationStatus.CANCELLED);
             restoreSeatsToTransport(reservation.getTransport(), reservation.getReservedSeats());
             Reservation saved = reservationRepository.save(reservation);
+            transportAiDatasetService.syncTransportTripDataset(reservation.getTransport());
             reservationEmailService.sendCancellationEmail(saved);
         }
 

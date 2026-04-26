@@ -22,4 +22,7 @@ public class ReservationRequestDTO {
     @Min(value = 1, message = "Il faut réserver au moins 1 place")
     @Max(value = 20, message = "Maximum 20 places")
     private Integer seatsCount;
+
+    @Positive(message = "L'ID du feedback AI doit être positif")
+    private Long recommendationFeedbackId;
 }

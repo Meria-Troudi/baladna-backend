@@ -14,6 +14,8 @@ import tn.esprit.spring.baladna.transport.entity.Station;
 import tn.esprit.spring.baladna.transport.entity.Trajet;
 import tn.esprit.spring.baladna.transport.repository.StationRepository;
 import tn.esprit.spring.baladna.transport.repository.TrajetRepository;
+import tn.esprit.spring.baladna.user.entity.User;
+import tn.esprit.spring.baladna.user.repository.UserRepository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -27,6 +29,8 @@ import static org.mockito.Mockito.when;
 })
 @ActiveProfiles("test")
 class TrajetStationSynchronizationIntegrationTest {
+
+    private static final String HOST_EMAIL = "host.transport.test@baladna.tn";
 
     @Autowired
     private TrajetService trajetService;
@@ -43,16 +47,30 @@ class TrajetStationSynchronizationIntegrationTest {
     @Autowired
     private RoutingService routingService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @BeforeEach
     void cleanDatabase() {
         trajetRepository.deleteAll();
         stationRepository.deleteAll();
+        userRepository.deleteAll();
     }
 
     @Test
     void createTrajetShouldPersistRouteDataFromRoutingService() {
+        User host = userRepository.save(User.builder()
+                .email(HOST_EMAIL)
+                .firstName("Host")
+                .lastName("Transport")
+                .build());
+
         Station departure = stationRepository.save(buildStation("Tunis Gare", "Tunis", 36.8, 10.18));
         Station arrival = stationRepository.save(buildStation("Sousse Centre", "Sousse", 35.82, 10.63));
+        departure.setHost(host);
+        arrival.setHost(host);
+        departure = stationRepository.save(departure);
+        arrival = stationRepository.save(arrival);
 
         when(routingService.getRouteInfo(any(Station.class), any(Station.class)))
                 .thenReturn(RouteInfo.builder()
@@ -67,7 +85,7 @@ class TrajetStationSynchronizationIntegrationTest {
                 .distanceKm(1.0)
                 .estimatedDurationMinutes(1)
                 .pricePerKm(0.8)
-                .build());
+                .build(), HOST_EMAIL);
 
         assertNotNull(savedTrajet.getId());
         assertEquals(142.75, savedTrajet.getDistanceKm());
@@ -77,8 +95,18 @@ class TrajetStationSynchronizationIntegrationTest {
 
     @Test
     void updateStationShouldResynchronizeLinkedTrajets() {
+        User host = userRepository.save(User.builder()
+                .email(HOST_EMAIL)
+                .firstName("Host")
+                .lastName("Transport")
+                .build());
+
         Station departure = stationRepository.save(buildStation("Tunis Gare", "Tunis", 36.8, 10.18));
         Station arrival = stationRepository.save(buildStation("Sousse Centre", "Sousse", 35.82, 10.63));
+        departure.setHost(host);
+        arrival.setHost(host);
+        departure = stationRepository.save(departure);
+        arrival = stationRepository.save(arrival);
 
         when(routingService.getRouteInfo(any(Station.class), any(Station.class)))
                 .thenReturn(RouteInfo.builder()
@@ -93,7 +121,7 @@ class TrajetStationSynchronizationIntegrationTest {
                 .distanceKm(1.0)
                 .estimatedDurationMinutes(1)
                 .pricePerKm(0.8)
-                .build());
+                .build(), HOST_EMAIL);
 
         when(routingService.getRouteInfo(any(Station.class), any(Station.class)))
                 .thenReturn(RouteInfo.builder()
@@ -106,7 +134,7 @@ class TrajetStationSynchronizationIntegrationTest {
         updatedDeparture.setSurcharge(departure.getSurcharge());
         updatedDeparture.setDowntown(departure.getDowntown());
 
-        stationService.updateStation(departure.getId(), updatedDeparture);
+        stationService.updateStation(departure.getId(), updatedDeparture, HOST_EMAIL);
 
         Trajet refreshedTrajet = trajetRepository.findById(trajet.getId()).orElseThrow();
         assertEquals(155.4, refreshedTrajet.getDistanceKm());

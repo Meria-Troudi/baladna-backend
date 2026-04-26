@@ -2,6 +2,7 @@ package tn.esprit.spring.baladna.transport.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -10,10 +11,12 @@ import tn.esprit.spring.baladna.transport.dto.RoutePreviewDTO;
 import tn.esprit.spring.baladna.transport.dto.TrajetDTO;
 import tn.esprit.spring.baladna.transport.entity.Station;
 import tn.esprit.spring.baladna.transport.entity.Trajet;
+import tn.esprit.spring.baladna.transport.exception.DuplicateRouteException;
 import tn.esprit.spring.baladna.transport.service.StationService;
 import tn.esprit.spring.baladna.transport.service.TrajetService;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -137,16 +140,28 @@ public class TrajetController {
     }
 
     @PostMapping
-    public ResponseEntity<TrajetDTO> createTrajet(@Valid @RequestBody TrajetDTO dto, Authentication authentication) {
-        Trajet created = trajetService.createTrajet(toEntity(dto), authentication.getName());
-        return ResponseEntity.ok(toDTO(created));
+    public ResponseEntity<?> createTrajet(@Valid @RequestBody TrajetDTO dto, Authentication authentication) {
+        try {
+            Trajet created = trajetService.createTrajet(toEntity(dto), authentication.getName());
+            return ResponseEntity.ok(toDTO(created));
+        } catch (DuplicateRouteException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", exception.getMessage()));
+        } catch (RuntimeException exception) {
+            return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
+        }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<TrajetDTO> updateTrajet(@PathVariable Long id, @Valid @RequestBody TrajetDTO dto, Authentication authentication) {
-        Trajet updated = trajetService.updateTrajet(id, toEntity(dto), authentication.getName());
-        if (updated == null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(toDTO(updated));
+    public ResponseEntity<?> updateTrajet(@PathVariable Long id, @Valid @RequestBody TrajetDTO dto, Authentication authentication) {
+        try {
+            Trajet updated = trajetService.updateTrajet(id, toEntity(dto), authentication.getName());
+            if (updated == null) return ResponseEntity.notFound().build();
+            return ResponseEntity.ok(toDTO(updated));
+        } catch (DuplicateRouteException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", exception.getMessage()));
+        } catch (RuntimeException exception) {
+            return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
+        }
     }
 
     @DeleteMapping("/{id}")

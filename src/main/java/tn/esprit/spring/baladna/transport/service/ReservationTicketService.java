@@ -33,21 +33,11 @@ public class ReservationTicketService {
             return null;
         }
 
-        String payload = String.join("|",
-                String.valueOf(reservation.getId()),
-                String.valueOf(reservation.getTransport() != null ? reservation.getTransport().getId() : null),
-                String.valueOf(reservation.getReservedSeats()),
-                String.valueOf(reservation.getTotalPrice()),
-                String.valueOf(reservation.getReservationDate()),
-                String.valueOf(reservation.getBoardingPoint()),
-                String.valueOf(reservation.getStatus())
-        );
-
+        String payload = buildTicketPayload(reservation, null, false);
         String signature = hmacHex(payload).substring(0, 6).toUpperCase(Locale.ROOT);
         return String.format(Locale.ROOT, "BLD-%04d-%s", reservation.getId(), signature);
     }
 
-    // *** CHANGEMENT : validateTicketCode marque maintenant BOARDED ***
     @Transactional
     public ReservationTicketValidationResponseDTO validateTicketCode(String rawTicketCode, String hostEmail) {
         String ticketCode = normalize(rawTicketCode);
@@ -66,10 +56,9 @@ public class ReservationTicketService {
         }
 
         Reservation reservation = optionalReservation.get();
-
-        // Vérification signature HMAC (on génère avec le statut actuel)
         String expectedTicketCode = generateTicketCode(reservation);
-        if (!expectedTicketCode.equalsIgnoreCase(ticketCode)) {
+
+        if (!matchesKnownTicketCode(reservation, ticketCode)) {
             return invalid("Ticket signature does not match the reservation.");
         }
 
@@ -89,11 +78,7 @@ public class ReservationTicketService {
             return buildResponse(reservation, expectedTicketCode, true, "Passenger already boarded. Ticket previously validated.");
         }
 
-        // CONFIRMED → on passe à BOARDED
-        reservation.setStatus(ReservationStatus.BOARDED);
-        reservationRepository.save(reservation);
-
-        return buildResponse(reservation, expectedTicketCode, true, "Ticket valid. Passenger marked as boarded.");
+        return buildResponse(reservation, expectedTicketCode, true, "Ticket valid. Reservation is confirmed for boarding.");
     }
 
     private ReservationTicketValidationResponseDTO buildResponse(
@@ -161,6 +146,62 @@ public class ReservationTicketService {
             return null;
         }
         return value.trim();
+    }
+
+    private boolean matchesKnownTicketCode(Reservation reservation, String ticketCode) {
+        if (ticketCode == null) {
+            return false;
+        }
+
+        String canonicalTicketCode = generateTicketCode(reservation);
+        if (canonicalTicketCode != null && canonicalTicketCode.equalsIgnoreCase(ticketCode)) {
+            return true;
+        }
+
+        // Compatibility path for tickets generated before the code was stabilised.
+        for (ReservationStatus status : ReservationStatus.values()) {
+            String legacyTicketCode = generateLegacyTicketCode(reservation, status);
+            if (legacyTicketCode != null && legacyTicketCode.equalsIgnoreCase(ticketCode)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private String generateLegacyTicketCode(Reservation reservation, ReservationStatus status) {
+        if (reservation == null || reservation.getId() == null) {
+            return null;
+        }
+
+        String payload = buildTicketPayload(reservation, status, true);
+        String signature = hmacHex(payload).substring(0, 6).toUpperCase(Locale.ROOT);
+        return String.format(Locale.ROOT, "BLD-%04d-%s", reservation.getId(), signature);
+    }
+
+    private String buildTicketPayload(
+            Reservation reservation,
+            ReservationStatus statusOverride,
+            boolean includeStatus
+    ) {
+        StringBuilder payload = new StringBuilder()
+                .append(String.valueOf(reservation.getId()))
+                .append('|')
+                .append(String.valueOf(reservation.getTransport() != null ? reservation.getTransport().getId() : null))
+                .append('|')
+                .append(String.valueOf(reservation.getReservedSeats()))
+                .append('|')
+                .append(String.valueOf(reservation.getTotalPrice()))
+                .append('|')
+                .append(String.valueOf(reservation.getReservationDate()))
+                .append('|')
+                .append(String.valueOf(reservation.getBoardingPoint()));
+
+        if (includeStatus) {
+            payload.append('|').append(String.valueOf(statusOverride != null ? statusOverride : reservation.getStatus()));
+        }
+
+        return payload.toString();
     }
 
     private String hmacHex(String payload) {
