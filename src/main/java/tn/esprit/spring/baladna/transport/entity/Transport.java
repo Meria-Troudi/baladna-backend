@@ -57,6 +57,11 @@ public class Transport {
     @Column(nullable = false)
     private Boolean trafficJam = false;
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(length = 16)
+    private TrafficCongestionLevel trafficCongestionLevel = TrafficCongestionLevel.NONE;
+
     @NotNull(message = "La condition météo est obligatoire")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -75,6 +80,9 @@ public class Transport {
     @Column
     private Double weatherPrecipitation;
 
+    @Column
+    private Integer actualDelayMinutes;
+
     @NotNull(message = "Le trajet est obligatoire")
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "trajet_id", nullable = false)
@@ -91,12 +99,10 @@ public class Transport {
     private List<Reservation> reservations = new ArrayList<>();
 
     @PrePersist
+    @PreUpdate
     public void prePersist() {
         if (availableSeats == null && totalCapacity != null) {
             availableSeats = totalCapacity;
-        }
-        if (trafficJam == null) {
-            trafficJam = false;
         }
         if (status == null) {
             status = TransportStatus.SCHEDULED;
@@ -104,6 +110,7 @@ public class Transport {
         if (weatherSource == null || weatherSource.isBlank()) {
             weatherSource = "AUTO";
         }
+        syncTrafficState();
     }
 
     public boolean checkWeatherConditions() {
@@ -122,9 +129,7 @@ public class Transport {
             }
         }
 
-        if (Boolean.TRUE.equals(trafficJam)) {
-            delay += 20;
-        }
+        delay += getTrafficDelayMinutes();
 
         return delay;
     }
@@ -134,11 +139,40 @@ public class Transport {
         return calculateDelay();
     }
 
+    @Transient
+    public TrafficCongestionLevel getEffectiveTrafficCongestionLevel() {
+        if (trafficCongestionLevel != null) {
+            return trafficCongestionLevel;
+        }
+        return Boolean.TRUE.equals(trafficJam) ? TrafficCongestionLevel.MEDIUM : TrafficCongestionLevel.NONE;
+    }
+
+    @Transient
+    public int getTrafficDelayMinutes() {
+        return switch (getEffectiveTrafficCongestionLevel()) {
+            case LOW -> 5;
+            case MEDIUM -> 15;
+            case HIGH -> 30;
+            default -> 0;
+        };
+    }
+
+    @Transient
+    public double getTrafficPriceMultiplier() {
+        return switch (getEffectiveTrafficCongestionLevel()) {
+            case LOW -> 1.05;
+            case MEDIUM -> 1.15;
+            case HIGH -> 1.30;
+            default -> 1.00;
+        };
+    }
+
     public LocalDateTime getRealDepartureDate() {
         if (departureDate == null) {
             return null;
         }
-        return departureDate.plusMinutes(calculateDelay());
+        int effectiveDelayMinutes = actualDelayMinutes != null ? actualDelayMinutes : calculateDelay();
+        return departureDate.plusMinutes(effectiveDelayMinutes);
     }
 
     public double calculatePrice(String boardingPoint, int lastSeatsCount) {
@@ -156,8 +190,7 @@ public class Transport {
         }
         price *= lastSeatsMultiplier;
 
-        double trafficMultiplier = Boolean.TRUE.equals(trafficJam) ? 1.25 : 1.00;
-        price *= trafficMultiplier;
+        price *= getTrafficPriceMultiplier();
 
         double weatherMultiplier = 1.00;
         if (weather != null) {
@@ -171,5 +204,15 @@ public class Transport {
         price *= weatherMultiplier;
 
         return Math.round(price * 100.0) / 100.0;
+    }
+
+    private void syncTrafficState() {
+        if (trafficCongestionLevel == null) {
+            trafficCongestionLevel = Boolean.TRUE.equals(trafficJam)
+                    ? TrafficCongestionLevel.MEDIUM
+                    : TrafficCongestionLevel.NONE;
+        }
+
+        trafficJam = getEffectiveTrafficCongestionLevel() != TrafficCongestionLevel.NONE;
     }
 }

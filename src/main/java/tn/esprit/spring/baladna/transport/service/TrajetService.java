@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import tn.esprit.spring.baladna.transport.dto.RouteInfo;
 import tn.esprit.spring.baladna.transport.entity.Station;
 import tn.esprit.spring.baladna.transport.entity.Trajet;
+import tn.esprit.spring.baladna.transport.exception.DuplicateRouteException;
 import tn.esprit.spring.baladna.transport.repository.StationRepository;
 import tn.esprit.spring.baladna.transport.repository.TrajetRepository;
 import tn.esprit.spring.baladna.user.entity.User;
@@ -84,6 +85,7 @@ public class TrajetService {
         User host = requireHost(hostEmail);
         Station departure = requireOwnedStation(trajet.getDepartureStation().getId(), hostEmail);
         Station arrival = requireOwnedStation(trajet.getArrivalStation().getId(), hostEmail);
+        ensureUniqueRouteForHost(hostEmail, departure, arrival, null);
 
         trajet.setDepartureStation(departure);
         trajet.setArrivalStation(arrival);
@@ -101,6 +103,7 @@ public class TrajetService {
 
         Station departure = requireOwnedStation(trajetDetails.getDepartureStation().getId(), hostEmail);
         Station arrival = requireOwnedStation(trajetDetails.getArrivalStation().getId(), hostEmail);
+        ensureUniqueRouteForHost(hostEmail, departure, arrival, id);
 
         trajet.setDepartureStation(departure);
         trajet.setArrivalStation(arrival);
@@ -117,7 +120,7 @@ public class TrajetService {
     public void deleteTrajet(Long id, String hostEmail) {
         Trajet trajet = getTrajetByIdForHost(id, hostEmail);
         if (trajet == null) {
-            throw new RuntimeException("Trajet non trouvé");
+            throw new RuntimeException("Trajet non trouvÃ©");
         }
         trajetRepository.delete(trajet);
     }
@@ -127,11 +130,11 @@ public class TrajetService {
         Station arrivalStation = stationRepository.findById(arrivalStationId).orElse(null);
 
         if (departureStation == null || arrivalStation == null) {
-            throw new RuntimeException("Les stations de départ et d'arrivée sont introuvables");
+            throw new RuntimeException("Les stations de dÃ©part et d'arrivÃ©e sont introuvables");
         }
 
         if (departureStation.getId().equals(arrivalStation.getId())) {
-            throw new RuntimeException("La station de départ doit être différente de la station d'arrivée");
+            throw new RuntimeException("La station de dÃ©part doit Ãªtre diffÃ©rente de la station d'arrivÃ©e");
         }
 
         return routingService.getRouteInfo(departureStation, arrivalStation);
@@ -153,7 +156,7 @@ public class TrajetService {
 
     private void validateTrajet(Trajet trajet) {
         if (trajet.getDepartureStation() == null || trajet.getArrivalStation() == null) {
-            throw new RuntimeException("Les stations de départ et d'arrivée sont obligatoires");
+            throw new RuntimeException("Les stations de dÃ©part et d'arrivÃ©e sont obligatoires");
         }
 
         if (trajet.getDepartureStation().getId() == null || trajet.getArrivalStation().getId() == null) {
@@ -161,18 +164,29 @@ public class TrajetService {
         }
 
         if (trajet.getDepartureStation().getId().equals(trajet.getArrivalStation().getId())) {
-            throw new RuntimeException("La station de départ doit être différente de la station d'arrivée");
+            throw new RuntimeException("La station de dÃ©part doit Ãªtre diffÃ©rente de la station d'arrivÃ©e");
         }
     }
 
     private Station requireOwnedStation(Long stationId, String hostEmail) {
         return stationRepository.findByIdAndHostEmail(stationId, hostEmail)
-                .orElseThrow(() -> new RuntimeException("La station sélectionnée n'appartient pas à ce host"));
+                .orElseThrow(() -> new RuntimeException("La station sÃ©lectionnÃ©e n'appartient pas Ã  ce host"));
     }
 
     private User requireHost(String hostEmail) {
         return userRepository.findByEmail(hostEmail)
                 .orElseThrow(() -> new RuntimeException("Host introuvable"));
+    }
+
+    private void ensureUniqueRouteForHost(String hostEmail, Station departure, Station arrival, Long currentTrajetId) {
+        boolean duplicateExists = trajetRepository
+                .findByHostEmailAndDepartureStationAndArrivalStation(hostEmail, departure, arrival)
+                .stream()
+                .anyMatch(existing -> currentTrajetId == null || !existing.getId().equals(currentTrajetId));
+
+        if (duplicateExists) {
+            throw new DuplicateRouteException("This exact route already exists for this host. You cannot create the same departure -> arrival twice. The reverse route is allowed if departure and arrival are swapped.");
+        }
     }
 
     private void enrichRouteData(Trajet trajet) {

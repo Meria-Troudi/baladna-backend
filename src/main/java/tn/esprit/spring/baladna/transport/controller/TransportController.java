@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.*;
 import tn.esprit.spring.baladna.transport.dto.TransportDTO;
 import tn.esprit.spring.baladna.transport.dto.WeatherPreviewDTO;
 import tn.esprit.spring.baladna.transport.entity.Trajet;
+import tn.esprit.spring.baladna.transport.entity.TrafficCongestionLevel;
 import tn.esprit.spring.baladna.transport.entity.Transport;
+import tn.esprit.spring.baladna.transport.service.TransportAiService;
 import tn.esprit.spring.baladna.transport.service.TrajetService;
 import tn.esprit.spring.baladna.transport.service.TransportService;
 
@@ -25,8 +27,16 @@ public class TransportController {
 
     private final TransportService transportService;
     private final TrajetService trajetService;
+    private final TransportAiService transportAiService;
 
     private TransportDTO toDTO(Transport transport) {
+        Integer predictedDelayMinutes;
+        try {
+            predictedDelayMinutes = transportAiService.predictDelay(transport).getPredictedDelayMinutes();
+        } catch (Exception exception) {
+            predictedDelayMinutes = transport.calculateDelay();
+        }
+
         return TransportDTO.builder()
                 .id(transport.getId())
                 .departurePoint(transport.getDeparturePoint())
@@ -37,12 +47,14 @@ public class TransportController {
                 .status(transport.getStatus())
                 .basePrice(transport.getBasePrice())
                 .trafficJam(transport.getTrafficJam())
+                .trafficCongestionLevel(transport.getEffectiveTrafficCongestionLevel())
                 .weather(transport.getWeather())
                 .weatherSource(transport.getWeatherSource())
                 .weatherTemperature(transport.getWeatherTemperature())
                 .weatherWindSpeed(transport.getWeatherWindSpeed())
                 .weatherPrecipitation(transport.getWeatherPrecipitation())
-                .delayMinutes(transport.calculateDelay())
+                .delayMinutes(predictedDelayMinutes)
+                .actualDelayMinutes(transport.getActualDelayMinutes())
                 .trajetId(transport.getTrajet().getId())
                 .trajetDescription(
                         transport.getTrajet().getDepartureStation().getName()
@@ -68,8 +80,10 @@ public class TransportController {
                 .status(dto.getStatus())
                 .basePrice(dto.getBasePrice())
                 .trafficJam(dto.getTrafficJam())
+                .trafficCongestionLevel(dto.getTrafficCongestionLevel())
                 .weather(dto.getWeather())
                 .weatherSource(dto.getWeatherSource())
+                .actualDelayMinutes(dto.getActualDelayMinutes())
                 .trajet(trajet)
                 .build();
     }
@@ -133,6 +147,7 @@ public class TransportController {
     public ResponseEntity<WeatherPreviewDTO> previewWeather(
             @RequestParam Long trajetId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime departureDate,
+            @RequestParam(defaultValue = "NONE") TrafficCongestionLevel trafficCongestionLevel,
             Authentication authentication
     ) {
         if (authentication == null) {
@@ -142,6 +157,7 @@ public class TransportController {
         WeatherPreviewDTO preview = transportService.previewWeather(
                 trajetId,
                 departureDate,
+                trafficCongestionLevel,
                 authentication.getName()
         );
 

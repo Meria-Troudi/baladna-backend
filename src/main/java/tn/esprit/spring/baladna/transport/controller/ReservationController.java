@@ -118,7 +118,8 @@ public class ReservationController {
                     request.getTransportId(),
                     authentication.getName(),
                     request.getBoardingPoint(),
-                    request.getSeatsCount()
+                    request.getSeatsCount(),
+                    request.getRecommendationFeedbackId()
             );
             return ResponseEntity.ok(toDTO(reservation));
         } catch (RuntimeException e) {
