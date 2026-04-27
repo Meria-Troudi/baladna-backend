@@ -23,10 +23,22 @@ public class EventMailService {
     private final JavaMailSender mailSender;
     private final TicketAndCalendarService ticketAndCalendarService;
 
-    @Value("${spring.mail.username}")
-    private String from;
+    @Value("${app.mail.from:${spring.mail.username:}}")
+    private String fromAddress;
+
+    @Value("${spring.mail.username:}")
+    private String smtpUsername;
+
+    @Value("${spring.mail.password:}")
+    private String smtpPassword;
 
     public void sendReservationConfirmation(EventReservation reservation) {
+        if (fromAddress == null || fromAddress.isBlank()
+                || smtpUsername == null || smtpUsername.isBlank()
+                || smtpPassword == null || smtpPassword.isBlank()) {
+            log.warn("Reservation email skipped (SMTP not configured: app.mail.from, username, password)");
+            return;
+        }
         try {
             User user = userRepository.findById(reservation.getUserId())
                     .orElseThrow(() -> new RuntimeException("User not found for reservation"));
@@ -61,7 +73,7 @@ public class EventMailService {
             body.append("</div>");
 
             helper.setTo(user.getEmail());
-            helper.setFrom(from);
+            helper.setFrom(fromAddress);
             helper.setSubject("🎟️ Event Confirmation - " + reservation.getEvent().getTitle());
             helper.setText(body.toString(), true);
             // === PDF ATTACHMENT ===

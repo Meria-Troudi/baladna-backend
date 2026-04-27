@@ -19,6 +19,13 @@ public class BookingMailService {
     private JavaMailSender mailSender;
 
     @Value("${spring.mail.username:}")
+    private String smtpUsername;
+
+    @Value("${spring.mail.password:}")
+    private String smtpPassword;
+
+    /** Shown as From: on outgoing mail (defaults to app.mail.from in application.properties). */
+    @Value("${app.mail.from:${spring.mail.username:}}")
     private String fromAddress;
 
     public boolean sendBookingConfirmation(
@@ -27,15 +34,19 @@ public class BookingMailService {
             String invoiceNumber,
             String confirmationCode,
             String qrDataUrl) {
-        if (mailSender == null || fromAddress == null || fromAddress.isBlank()) {
-            log.info("Email skipped (mail not configured). Guest: {}, invoice: {}", toEmail, invoiceNumber);
+        if (mailSender == null
+                || smtpUsername == null || smtpUsername.isBlank()
+                || smtpPassword == null || smtpPassword.isBlank()) {
+            log.info("Email skipped (SMTP not configured: set MAIL_USERNAME / MAIL_PASSWORD or spring.mail.*). Guest: {}, invoice: {}",
+                    toEmail, invoiceNumber);
             return false;
         }
+        String from = (fromAddress != null && !fromAddress.isBlank()) ? fromAddress : smtpUsername;
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(toEmail);
-            helper.setFrom(fromAddress);
+            helper.setFrom(from);
             helper.setSubject("Baladna — Confirmation de réservation " + invoiceNumber);
             String body = """
                     <p>Bonjour %s,</p>
