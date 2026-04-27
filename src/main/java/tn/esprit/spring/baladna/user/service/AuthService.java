@@ -19,7 +19,11 @@ import tn.esprit.spring.baladna.user.entity.User;
 import tn.esprit.spring.baladna.user.repository.SessionRepository;
 import tn.esprit.spring.baladna.user.repository.UserRepository;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 
@@ -68,31 +72,63 @@ public class AuthService {
     }
 
     public AuthResponse faceLogin(FaceLoginRequest request) {
-        // ✅ Appeler l'API Python pour reconnaître le visage
-        String pythonApiUrl = "http://localhost:8000/recognize";
+        String email = request.getEmail();
+        String capturedImage = request.getImage();
 
-        RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        User user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé: " + email));
 
-        Map<String, String> body = Map.of("image", request.getImage());
-        HttpEntity<Map<String, String>> entity = new HttpEntity<>(body, headers);
+        if (user.getProfilePhoto() == null) {
+            throw new RuntimeException("Cet utilisateur n'a pas de photo de profil. Veuillez en ajouter une d'abord.");
+        }
+
+        String uploadDir = "C:\\Users\\msi\\Desktop\\complet\\baladna-backend\\uploads\\photos\\";
+        String profilePhotoPath = uploadDir + user.getProfilePhoto();
+
+        if (!Files.exists(Paths.get(profilePhotoPath))) {
+            throw new RuntimeException("Photo de profil introuvable. Veuillez recharger votre photo.");
+        }
 
         try {
-            Map<String, Object> response = restTemplate.postForObject(pythonApiUrl, entity, Map.class);
-            String recognizedName = (String) response.get("name");
+            byte[] profilePhotoBytes = Files.readAllBytes(Paths.get(profilePhotoPath));
+            String profilePhotoBase64 = Base64.getEncoder().encodeToString(profilePhotoBytes);
 
-            if (recognizedName == null || recognizedName.equals("Unknown") || recognizedName.contains("Error")) {
-                throw new RuntimeException("Visage non reconnu");
+            RestTemplate restTemplate = new RestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, String> body = Map.of(
+                "image1", capturedImage,
+                "image2", profilePhotoBase64
+            );
+            HttpEntity<Map<String, String>> entity = new HttpEntity<>(body, headers);
+
+            Map<String, Object> response = restTemplate.postForObject(
+                "http://localhost:8000/compare",
+                entity,
+                Map.class
+            );
+
+            System.out.println("=== FACE LOGIN DEBUG ===");
+            System.out.println("Response: " + response);
+            System.out.println("========================");
+
+            Boolean match = (Boolean) response.get("match");
+            Double similarity = response.containsKey("similarity") 
+                ? ((Number) response.get("similarity")).doubleValue() 
+                : 0;
+
+            System.out.println("Match: " + match + ", Similarity: " + similarity + "%");
+
+            if (match == null || !match) {
+                throw new RuntimeException("Visage non correspondant. Similarité: " + similarity + "%");
             }
-
-            // ✅ Rechercher l'utilisateur par email (le nom dans faces.json est l'email)
-            User user = userRepo.findByEmail(recognizedName)
-                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé: " + recognizedName));
 
             logService.log("FACE_LOGIN", user);
             return generateTokens(user);
 
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Erreur reconnaissance faciale: " + e.getMessage());
         }

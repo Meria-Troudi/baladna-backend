@@ -46,6 +46,7 @@ public class SecurityConfig {
                                 "/api/rh/interviews",        // ✅ public
                                 "/api/rh/interviews/*",      // ✅ public
                                 "/api/rh/apply",
+                                "/uploads/**",
                                 "/uploads/photos/**"
 
                         ).permitAll()

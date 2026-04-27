@@ -15,6 +15,7 @@ import tn.esprit.spring.baladna.user.repository.SessionRepository;
 import tn.esprit.spring.baladna.user.repository.UserRepository;
 import java.nio.file.*;
 import java.io.IOException;
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.client.RestTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -33,7 +35,7 @@ public class UserService {
     private final PasswordEncoder encoder;
     private final SessionRepository sessionRepo;
     private final String uploadDir = "uploads/photos/";
-    private final String pythonProjectPath = "C:\\Users\\msi\\Desktop\\PI\\Face_recognition_python-main";
+    private final String pythonProjectPath = "C:\\Users\\msi\\Desktop\\complet\\Face_recognition_python-main";
     private final ObjectMapper objectMapper = new ObjectMapper();
     // ✅ ADMIN - Liste tous les users
     //public List<User> getAllUsers() {
@@ -223,6 +225,16 @@ public class UserService {
             System.err.println("Erreur écriture faces.json: " + e.getMessage());
         }
 
+        // ✅ Ré-entraîner le modèle de reconnaissance faciale (séparé pour ne pas bloquer si échec)
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            String retrainUrl = "http://localhost:8000/retrain";
+            String response = restTemplate.postForObject(retrainUrl, null, String.class);
+            System.out.println("Modèle ré-entraîné: " + response);
+        } catch (Exception e) {
+            System.err.println("Erreur ré-entraînement modèle (ignoré): " + e.getMessage());
+        }
+
         // ✅ Mettre à jour en base
         user.setProfilePhoto(fileName);
         userRepo.save(user);
@@ -259,6 +271,16 @@ public class UserService {
             user.setProfilePhoto(null);
             userRepo.save(user);
             logService.log("PHOTO_DELETED", user);
+
+            // ✅ Ré-entraîner le modèle après suppression (séparé pour ne pas bloquer si échec)
+            try {
+                RestTemplate restTemplate = new RestTemplate();
+                String retrainUrl = "http://localhost:8000/retrain";
+                String response = restTemplate.postForObject(retrainUrl, null, String.class);
+                System.out.println("Modèle ré-entraîné après suppression: " + response);
+            } catch (Exception e) {
+                System.err.println("Erreur ré-entraînement modèle (ignoré): " + e.getMessage());
+            }
         }
     }
 }
