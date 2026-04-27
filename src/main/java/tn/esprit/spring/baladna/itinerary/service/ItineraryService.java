@@ -137,15 +137,30 @@ public class ItineraryService {
             throw new IllegalStateException("This itinerary is private");
         }
 
-        // Check not already a collaborator
-        collaboratorRepository.findByItineraryIdAndUserId(itineraryId, requestingUserId)
-                .ifPresent(c -> { throw new IllegalStateException("You already have a pending or active request"); });
+        // Check if user already has a request
+        var existingCollab = collaboratorRepository.findByItineraryIdAndUserId(itineraryId, requestingUserId);
+        
+        if (existingCollab.isPresent()) {
+            ItineraryCollaborator collab = existingCollab.get();
+            
+            // If already PENDING or ACTIVE, cannot resend
+            if (collab.getStatus() == CollaboratorStatus.PENDING || collab.getStatus() == CollaboratorStatus.ACTIVE) {
+                throw new IllegalStateException("You already have a pending or active request");
+            }
+            
+            // If REJECTED or REMOVED, allow resending - update status back to PENDING
+            collab.setStatus(CollaboratorStatus.PENDING);
+            collab.setRequestedAt(LocalDateTime.now());
+            return mapToCollaboratorResponse(collaboratorRepository.save(collab));
+        }
 
+        // Create new request
         ItineraryCollaborator collab = ItineraryCollaborator.builder()
                 .itinerary(itinerary)
                 .userId(requestingUserId)
                 .role(CollaboratorRole.VIEWER)
                 .status(CollaboratorStatus.PENDING)
+                .requestedAt(LocalDateTime.now())
                 .build();
 
         return mapToCollaboratorResponse(collaboratorRepository.save(collab));
@@ -193,8 +208,9 @@ public class ItineraryService {
         ItineraryCollaborator collab = collaboratorRepository.findById(collaboratorId)
                 .orElseThrow(() -> new NoSuchElementException("Collaborator not found"));
 
-        if (collab.getRole() == CollaboratorRole.OWNER) {
-            throw new IllegalStateException("Cannot remove the owner");
+        // Cannot remove the itinerary's original owner
+        if (collab.getUserId().equals(itinerary.getOwnerId())) {
+            throw new IllegalStateException("Cannot remove the itinerary owner");
         }
 
         collab.setStatus(CollaboratorStatus.REMOVED);

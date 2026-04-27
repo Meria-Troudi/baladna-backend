@@ -79,6 +79,18 @@ public class Itinerary {
     @Builder.Default
     private List<Expense> expenses = new ArrayList<>();
 
+    @OneToMany(mappedBy = "itinerary", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ChatMessage> chatMessages = new ArrayList<>();
+
+    @OneToMany(mappedBy = "itinerary", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Settlement> settlements = new ArrayList<>();
+
+    @OneToMany(mappedBy = "itinerary", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<SettlementSummary> settlementSummaries = new ArrayList<>();
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

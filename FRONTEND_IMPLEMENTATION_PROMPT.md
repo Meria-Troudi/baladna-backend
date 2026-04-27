@@ -1,0 +1,1234 @@
+# Frontend Implementation Prompt: AI Itinerary Recommendation System
+
+## Overview
+
+The backend now has a complete AI recommendation system for suggesting travel itineraries based on budget, location, and trip characteristics. This prompt provides all necessary technical details to implement the frontend integration.
+
+## 🎯 Feature Summary
+
+Users should be able to:
+1. **Search for recommendations** with flexible filters
+2. **View recommendation details** with similarity scores
+3. **Discover similar trips** to ones they're viewing
+4. **See data statistics** (admin panel)
+5. **Export recommendations** (admin panel)
+
+---
+
+## 📡 API Endpoints
+
+### Base URL
+```
+http://localhost:8081/api/itinerary/recommendations
+```
+
+### Endpoints Available
+
+#### 1. Search Recommendations
+```
+POST /search
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "maxBudget": 5000,
+  "location": "Sousse",
+  "limit": 5,
+  "minDuration": 3,
+  "maxDuration": 14,
+  "kNeighbors": 5,
+  "minRating": 3.5,
+  "exactLocationMatch": false
+}
+```
+
+**Parameters Explanation:**
+| Parameter | Type | Required | Example | Note |
+|-----------|------|----------|---------|------|
+| maxBudget | number | No | 5000 | Maximum budget (TND) |
+| location | string | No | "Sousse" | Destination region |
+| limit | number | No | 5 | Results to return (default: 5, max: 50) |
+| minDuration | number | No | 3 | Minimum days |
+| maxDuration | number | No | 14 | Maximum days |
+| kNeighbors | number | No | 5 | k-NN parameter (default: 5) |
+| minRating | number | No | 3.5 | Minimum rating (0.0-5.0) |
+| exactLocationMatch | boolean | No | false | Exact location match only |
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "count": 3,
+  "recommendations": [
+    {
+      "itineraryId": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Sousse Summer Escape",
+      "description": "Beautiful beach town with great nightlife",
+      "destination": "Sousse",
+      "budget": 4500.00,
+      "durationDays": 5,
+      "startDate": "2024-06-15",
+      "endDate": "2024-06-20",
+      "numSteps": 8,
+      "avgDailyCost": 560.00,
+      "similarityScore": 0.9200,
+      "rating": 4.50,
+      "numCollaborators": 3,
+      "recommendationReason": "Highly relevant itinerary. Budget: 4500.0. Located in your preferred region. Includes 8 activities."
+    },
+    ...
+  ],
+  "message": "Found 3 recommendations"
+}
+```
+
+**Response Fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| itineraryId | UUID | Reference to the itinerary |
+| title | string | Trip name |
+| description | string | Trip details |
+| destination | string | Location name |
+| budget | decimal | Estimated cost (TND) |
+| durationDays | integer | Trip length |
+| startDate | date | YYYY-MM-DD format |
+| endDate | date | YYYY-MM-DD format |
+| numSteps | integer | Number of activities |
+| avgDailyCost | decimal | Daily average |
+| similarityScore | decimal | 0.0-1.0 (higher = better match) |
+| rating | decimal | 0.0-5.0 quality rating |
+| numCollaborators | integer | Group size |
+| recommendationReason | string | Why recommended |
+
+**Error Responses:**
+```json
+// 400 Bad Request
+{
+  "success": false,
+  "error": "Invalid budget range"
+}
+
+// 500 Internal Server Error
+{
+  "success": false,
+  "error": "Error generating recommendations: [details]"
+}
+```
+
+---
+
+#### 2. Get Similar Recommendations
+```
+GET /similar/{itineraryId}?limit=5
+```
+
+**Parameters:**
+- `itineraryId` (path) - UUID of reference itinerary
+- `limit` (query) - Number of results (default: 5)
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "count": 4,
+  "recommendations": [...]
+}
+```
+
+**No results example:**
+```json
+{
+  "success": true,
+  "count": 0,
+  "recommendations": []
+}
+```
+
+---
+
+#### 3. Admin: Generate Training Data
+```
+POST /train/generate
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "recordsGenerated": 45,
+  "message": "Training data generated for 45 itineraries"
+}
+```
+
+---
+
+#### 4. Admin: Normalize Data
+```
+POST /train/normalize
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Training data normalized successfully"
+}
+```
+
+---
+
+#### 5. Admin: Get Statistics
+```
+GET /train/statistics
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "statistics": "=== Training Data Statistics ===\nTotal Records: 45\nAverage Budget: 4567.89\nAverage Duration: 6.2 days\nAverage Rating: 4.15/5.0\nUnique Locations: 15\n"
+}
+```
+
+---
+
+#### 6. Admin: Export Data
+```
+GET /train/export
+```
+
+**Returns:** CSV file download
+- Content-Type: `text/csv`
+- Content-Disposition: `attachment; filename="training_data.csv"`
+
+**CSV Format:**
+```
+itinerary_id,location,budget,duration_days,avg_daily_cost,num_steps,num_collaborators,num_expenses,rating
+550e8400-e29b-41d4-a716-446655440000,Sousse,4500.00,5,900.00,8,3,15,4.50
+```
+
+---
+
+## 🏗️ Data Models
+
+### TypeScript Interfaces
+
+```typescript
+// Request
+interface RecommendationSearchRequest {
+  maxBudget?: number;
+  location?: string;
+  limit?: number;
+  minDuration?: number;
+  maxDuration?: number;
+  kNeighbors?: number;
+  minRating?: number;
+  exactLocationMatch?: boolean;
+}
+
+// Single Recommendation
+interface Recommendation {
+  itineraryId: string;              // UUID
+  title: string;
+  description?: string;
+  destination: string;
+  budget: number;
+  durationDays: number;
+  startDate: string;                // "YYYY-MM-DD"
+  endDate: string;                  // "YYYY-MM-DD"
+  numSteps: number;
+  avgDailyCost: number;
+  similarityScore: number;          // 0.0 to 1.0
+  rating: number;                   // 0.0 to 5.0
+  numCollaborators: number;
+  recommendationReason: string;
+}
+
+// Response
+interface RecommendationSearchResponse {
+  success: boolean;
+  count: number;
+  recommendations: Recommendation[];
+  message?: string;
+  error?: string;
+}
+
+// Admin Stats
+interface TrainingStatistics {
+  success: boolean;
+  statistics: string;
+}
+```
+
+---
+
+## 💻 Angular Service Implementation
+
+```typescript
+// recommendation.service.ts
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class RecommendationService {
+  private baseUrl = '/api/itinerary/recommendations';
+
+  constructor(private http: HttpClient) {}
+
+  /**
+   * Search recommendations based on criteria
+   */
+  searchRecommendations(
+    criteria: RecommendationSearchRequest
+  ): Observable<RecommendationSearchResponse> {
+    return this.http.post<RecommendationSearchResponse>(
+      `${this.baseUrl}/search`,
+      criteria
+    );
+  }
+
+  /**
+   * Get recommendations similar to a specific itinerary
+   */
+  getSimilarRecommendations(
+    itineraryId: string,
+    limit: number = 5
+  ): Observable<RecommendationSearchResponse> {
+    return this.http.get<RecommendationSearchResponse>(
+      `${this.baseUrl}/similar/${itineraryId}`,
+      { params: { limit: limit.toString() } }
+    );
+  }
+
+  /**
+   * Admin: Generate training data from existing itineraries
+   */
+  generateTrainingData(): Observable<any> {
+    return this.http.post(`${this.baseUrl}/train/generate`, {});
+  }
+
+  /**
+   * Admin: Normalize training data
+   */
+  normalizeTrainingData(): Observable<any> {
+    return this.http.post(`${this.baseUrl}/train/normalize`, {});
+  }
+
+  /**
+   * Admin: Get statistics
+   */
+  getStatistics(): Observable<TrainingStatistics> {
+    return this.http.get<TrainingStatistics>(
+      `${this.baseUrl}/train/statistics`
+    );
+  }
+
+  /**
+   * Admin: Export training data
+   */
+  exportTrainingData(): void {
+    const link = document.createElement('a');
+    link.href = `${this.baseUrl}/train/export`;
+    link.download = 'training_data.csv';
+    link.click();
+  }
+}
+```
+
+---
+
+## 🎨 Component Examples
+
+### Search Component
+
+```typescript
+// recommendation-search.component.ts
+import { Component, OnInit } from '@angular/core';
+import { RecommendationService } from './recommendation.service';
+
+@Component({
+  selector: 'app-recommendation-search',
+  templateUrl: './recommendation-search.component.html',
+  styleUrls: ['./recommendation-search.component.scss']
+})
+export class RecommendationSearchComponent implements OnInit {
+  recommendations: Recommendation[] = [];
+  isLoading = false;
+  errorMessage = '';
+  successMessage = '';
+
+  searchForm = {
+    maxBudget: null,
+    location: '',
+    limit: 5,
+    minDuration: null,
+    maxDuration: null,
+    minRating: null,
+    exactLocationMatch: false
+  };
+
+  constructor(private recommendationService: RecommendationService) {}
+
+  ngOnInit(): void {
+    // Optional: Load default recommendations on init
+    this.searchRecommendations();
+  }
+
+  searchRecommendations(): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    // Filter out empty fields
+    const criteria = Object.fromEntries(
+      Object.entries(this.searchForm).filter(
+        ([_, value]) => value !== null && value !== ''
+      )
+    );
+
+    this.recommendationService.searchRecommendations(criteria).subscribe({
+      next: (response) => {
+        this.recommendations = response.recommendations;
+        this.successMessage = `Found ${response.count} recommendations`;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        this.errorMessage = error.error?.error || 'Error fetching recommendations';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  resetFilters(): void {
+    this.searchForm = {
+      maxBudget: null,
+      location: '',
+      limit: 5,
+      minDuration: null,
+      maxDuration: null,
+      minRating: null,
+      exactLocationMatch: false
+    };
+    this.recommendations = [];
+  }
+}
+```
+
+**Template:**
+```html
+<!-- recommendation-search.component.html -->
+<div class="recommendation-search">
+  <h2>Find Your Perfect Trip</h2>
+
+  <!-- Search Filters -->
+  <form (ngSubmit)="searchRecommendations()" #searchForm="ngForm">
+    
+    <div class="form-group">
+      <label for="maxBudget">Max Budget (TND)</label>
+      <input
+        type="number"
+        id="maxBudget"
+        [(ngModel)]="searchForm.maxBudget"
+        name="maxBudget"
+        placeholder="e.g., 5000"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="location">Location</label>
+      <input
+        type="text"
+        id="location"
+        [(ngModel)]="searchForm.location"
+        name="location"
+        placeholder="e.g., Sousse"
+        list="locations"
+      />
+      <datalist id="locations">
+        <option value="Tunis"></option>
+        <option value="Sousse"></option>
+        <option value="Sfax"></option>
+        <option value="Djerba"></option>
+        <option value="Hammamet"></option>
+      </datalist>
+    </div>
+
+    <div class="form-group">
+      <label for="minDuration">Min Duration (days)</label>
+      <input
+        type="number"
+        id="minDuration"
+        [(ngModel)]="searchForm.minDuration"
+        name="minDuration"
+        min="1"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="maxDuration">Max Duration (days)</label>
+      <input
+        type="number"
+        id="maxDuration"
+        [(ngModel)]="searchForm.maxDuration"
+        name="maxDuration"
+        min="1"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="minRating">Min Rating</label>
+      <select id="minRating" [(ngModel)]="searchForm.minRating" name="minRating">
+        <option value="">Any Rating</option>
+        <option value="3">3+ ⭐</option>
+        <option value="4">4+ ⭐</option>
+        <option value="4.5">4.5+ ⭐</option>
+      </select>
+    </div>
+
+    <div class="form-group checkbox">
+      <label>
+        <input
+          type="checkbox"
+          [(ngModel)]="searchForm.exactLocationMatch"
+          name="exactLocationMatch"
+        />
+        Exact Location Match
+      </label>
+    </div>
+
+    <button type="submit" [disabled]="isLoading">
+      {{ isLoading ? 'Searching...' : 'Search Recommendations' }}
+    </button>
+    <button type="button" (click)="resetFilters()">Reset</button>
+  </form>
+
+  <!-- Messages -->
+  <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
+  <div *ngIf="successMessage" class="success-message">{{ successMessage }}</div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading">
+    <p>Finding perfect recommendations...</p>
+  </div>
+
+  <!-- Results -->
+  <div *ngIf="recommendations.length > 0" class="recommendations-list">
+    <h3>Recommended for You</h3>
+    
+    <div *ngFor="let rec of recommendations" class="recommendation-card">
+      <div class="header">
+        <h4>{{ rec.title }}</h4>
+        <span class="similarity-badge" [style.opacity]="rec.similarityScore">
+          {{ (rec.similarityScore * 100).toFixed(0) }}% Match
+        </span>
+      </div>
+
+      <p class="description">{{ rec.description }}</p>
+
+      <div class="details-grid">
+        <div class="detail">
+          <strong>📍 Location:</strong>
+          <span>{{ rec.destination }}</span>
+        </div>
+        <div class="detail">
+          <strong>💰 Budget:</strong>
+          <span>{{ rec.budget | currency:'TND' }}</span>
+        </div>
+        <div class="detail">
+          <strong>⏰ Duration:</strong>
+          <span>{{ rec.durationDays }} days</span>
+        </div>
+        <div class="detail">
+          <strong>⭐ Rating:</strong>
+          <span>{{ rec.rating | number:'1.1-1' }}/5.0</span>
+        </div>
+        <div class="detail">
+          <strong>💵 Daily Cost:</strong>
+          <span>{{ rec.avgDailyCost | currency:'TND' }}/day</span>
+        </div>
+        <div class="detail">
+          <strong>🎯 Activities:</strong>
+          <span>{{ rec.numSteps }} steps</span>
+        </div>
+      </div>
+
+      <p class="reason">
+        <em>{{ rec.recommendationReason }}</em>
+      </p>
+
+      <div class="actions">
+        <button (click)="viewItinerary(rec.itineraryId)" class="btn-primary">
+          View Details
+        </button>
+        <button (click)="getSimilar(rec.itineraryId)" class="btn-secondary">
+          Similar Trips
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Results -->
+  <div *ngIf="!isLoading && recommendations.length === 0 && successMessage" class="no-results">
+    <p>No recommendations found. Try adjusting your filters.</p>
+  </div>
+</div>
+```
+
+---
+
+### Similar Recommendations Component
+
+```typescript
+// similar-recommendations.component.ts
+import { Component, Input, OnInit } from '@angular/core';
+import { RecommendationService } from './recommendation.service';
+
+@Component({
+  selector: 'app-similar-recommendations',
+  templateUrl: './similar-recommendations.component.html'
+})
+export class SimilarRecommendationsComponent implements OnInit {
+  @Input() itineraryId: string;
+  
+  recommendations: Recommendation[] = [];
+  isLoading = false;
+  error = '';
+
+  constructor(private recommendationService: RecommendationService) {}
+
+  ngOnInit(): void {
+    if (this.itineraryId) {
+      this.loadSimilarRecommendations();
+    }
+  }
+
+  loadSimilarRecommendations(): void {
+    this.isLoading = true;
+    
+    this.recommendationService.getSimilarRecommendations(this.itineraryId, 5)
+      .subscribe({
+        next: (response) => {
+          this.recommendations = response.recommendations;
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.error = 'Could not load similar recommendations';
+          this.isLoading = false;
+        }
+      });
+  }
+}
+```
+
+---
+
+## 🛡️ Error Handling
+
+```typescript
+// error-handler.interceptor.ts
+import { Injectable } from '@angular/core';
+import { HttpInterceptor, HttpRequest, HttpHandler, HttpErrorResponse } from '@angular/common/http';
+import { catchError } from 'rxjs/operators';
+import { throwError } from 'rxjs';
+
+@Injectable()
+export class ErrorHandlerInterceptor implements HttpInterceptor {
+  intercept(req: HttpRequest<any>, next: HttpHandler) {
+    return next.handle(req).pipe(
+      catchError((error: HttpErrorResponse) => {
+        let errorMessage = 'An error occurred';
+
+        if (error.error instanceof ErrorEvent) {
+          // Client-side error
+          errorMessage = `Error: ${error.error.message}`;
+        } else {
+          // Server-side error
+          errorMessage = error.error?.error || `Error Code: ${error.status}`;
+        }
+
+        console.error(errorMessage);
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
+}
+```
+
+---
+
+## 📊 State Management (NgRx Example)
+
+```typescript
+// recommendation.state.ts
+export interface RecommendationState {
+  recommendations: Recommendation[];
+  isLoading: boolean;
+  error: string | null;
+  lastSearchCriteria: RecommendationSearchRequest | null;
+}
+
+// recommendation.selectors.ts
+export const selectRecommendations = (state: AppState) =>
+  state.recommendations.recommendations;
+
+export const selectIsLoading = (state: AppState) =>
+  state.recommendations.isLoading;
+
+// recommendation.actions.ts
+export const searchRecommendations = createAction(
+  '[Recommendation] Search',
+  props<{ criteria: RecommendationSearchRequest }>()
+);
+
+export const searchRecommendationsSuccess = createAction(
+  '[Recommendation] Search Success',
+  props<{ recommendations: Recommendation[] }>()
+);
+
+export const searchRecommendationsFailure = createAction(
+  '[Recommendation] Search Failure',
+  props<{ error: string }>()
+);
+
+// recommendation.effects.ts
+@Injectable()
+export class RecommendationEffects {
+  search$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(searchRecommendations),
+      switchMap(({ criteria }) =>
+        this.recommendationService.searchRecommendations(criteria).pipe(
+          map((response) => searchRecommendationsSuccess({
+            recommendations: response.recommendations
+          })),
+          catchError((error) => of(searchRecommendationsFailure({
+            error: error.message
+          })))
+        )
+      )
+    )
+  );
+
+  constructor(
+    private actions$: Actions,
+    private recommendationService: RecommendationService
+  ) {}
+}
+```
+
+---
+
+## 🎨 Styling (SCSS Example)
+
+```scss
+// recommendation-search.component.scss
+.recommendation-search {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+
+  h2 {
+    margin-bottom: 2rem;
+    font-size: 2rem;
+  }
+
+  form {
+    background: #f5f5f5;
+    padding: 2rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+
+      label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+
+      input, select {
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+
+        &:focus {
+          outline: none;
+          border-color: #007bff;
+          box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+      }
+
+      &.checkbox {
+        flex-direction: row;
+        align-items: center;
+
+        label {
+          margin: 0;
+          margin-left: 0.5rem;
+        }
+      }
+    }
+
+    button {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+
+      &[type="submit"] {
+        background: #007bff;
+        color: white;
+        grid-column: 1 / -1;
+
+        &:hover:not(:disabled) {
+          background: #0056b3;
+        }
+
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      }
+
+      &[type="button"] {
+        background: #6c757d;
+        color: white;
+
+        &:hover {
+          background: #545b62;
+        }
+      }
+    }
+  }
+
+  .recommendations-list {
+    h3 {
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+    }
+
+    .recommendation-card {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: box-shadow 0.3s;
+
+      &:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+
+        h4 {
+          margin: 0;
+          font-size: 1.25rem;
+        }
+
+        .similarity-badge {
+          background: #28a745;
+          color: white;
+          padding: 0.5rem 1rem;
+          border-radius: 20px;
+          font-weight: 600;
+          font-size: 0.875rem;
+        }
+      }
+
+      .description {
+        color: #666;
+        margin-bottom: 1rem;
+      }
+
+      .details-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: #f9f9f9;
+        border-radius: 4px;
+
+        .detail {
+          strong {
+            display: block;
+            margin-bottom: 0.25rem;
+            color: #333;
+          }
+
+          span {
+            color: #666;
+          }
+        }
+      }
+
+      .reason {
+        color: #777;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+      }
+
+      .actions {
+        display: flex;
+        gap: 1rem;
+
+        button {
+          padding: 0.75rem 1.5rem;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: 600;
+          flex: 1;
+
+          &.btn-primary {
+            background: #007bff;
+            color: white;
+
+            &:hover {
+              background: #0056b3;
+            }
+          }
+
+          &.btn-secondary {
+            background: #6c757d;
+            color: white;
+
+            &:hover {
+              background: #545b62;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .error-message {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    border: 1px solid #f5c6cb;
+  }
+
+  .success-message {
+    background: #d4edda;
+    color: #155724;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    border: 1px solid #c3e6cb;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 2rem;
+    color: #666;
+  }
+
+  .no-results {
+    text-align: center;
+    padding: 2rem;
+    color: #999;
+  }
+}
+```
+
+---
+
+## 📱 Mobile Responsive
+
+```html
+<!-- Responsive template considerations -->
+<div class="recommendation-search" [class.mobile]="isMobile">
+  <!-- Content adapts to screen size -->
+</div>
+```
+
+```scss
+// Mobile styles
+@media (max-width: 768px) {
+  .recommendation-search {
+    padding: 1rem;
+
+    form {
+      grid-template-columns: 1fr;
+    }
+
+    .recommendations-list {
+      .recommendation-card {
+        .details-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .actions {
+          flex-direction: column;
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
+## ⚡ Performance Optimization
+
+```typescript
+// Use trackBy to prevent unnecessary re-renders
+trackByItineraryId(index: number, rec: Recommendation) {
+  return rec.itineraryId;
+}
+
+// In template:
+<div *ngFor="let rec of recommendations; trackBy: trackByItineraryId">
+```
+
+**Implement caching:**
+```typescript
+// cached-recommendation.service.ts
+private cache = new Map<string, RecommendationSearchResponse>();
+
+searchRecommendations(criteria: RecommendationSearchRequest) {
+  const key = JSON.stringify(criteria);
+  
+  if (this.cache.has(key)) {
+    return of(this.cache.get(key));
+  }
+
+  return this.http.post<RecommendationSearchResponse>(
+    `${this.baseUrl}/search`,
+    criteria
+  ).pipe(
+    tap(response => this.cache.set(key, response))
+  );
+}
+```
+
+---
+
+## 🧪 Testing
+
+```typescript
+// recommendation.service.spec.ts
+describe('RecommendationService', () => {
+  let service: RecommendationService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [RecommendationService]
+    });
+
+    service = TestBed.inject(RecommendationService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  it('should search recommendations', () => {
+    const mockResponse: RecommendationSearchResponse = {
+      success: true,
+      count: 1,
+      recommendations: [{
+        itineraryId: 'test-id',
+        title: 'Test Trip',
+        destination: 'Sousse',
+        budget: 5000,
+        durationDays: 5,
+        startDate: '2024-01-01',
+        endDate: '2024-01-05',
+        numSteps: 5,
+        avgDailyCost: 1000,
+        similarityScore: 0.95,
+        rating: 4.5,
+        numCollaborators: 3,
+        recommendationReason: 'Great match'
+      }]
+    };
+
+    service.searchRecommendations({ maxBudget: 5000 })
+      .subscribe(response => {
+        expect(response.count).toBe(1);
+        expect(response.recommendations[0].title).toBe('Test Trip');
+      });
+
+    const req = httpMock.expectOne(
+      `${service.baseUrl}/search`
+    );
+    expect(req.request.method).toBe('POST');
+    req.flush(mockResponse);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+});
+```
+
+---
+
+## 📋 Checklist for Frontend Implementation
+
+- [ ] Create RecommendationService with all methods
+- [ ] Create RecommendationSearchComponent
+- [ ] Create SimilarRecommendationsComponent
+- [ ] Create/update data models (interfaces)
+- [ ] Implement error handling
+- [ ] Add HTTP interceptor for error handling
+- [ ] Style components with responsive design
+- [ ] Add loading states
+- [ ] Add empty state handling
+- [ ] Implement caching strategy
+- [ ] Add unit tests
+- [ ] Add integration tests
+- [ ] Test on mobile devices
+- [ ] Verify API integration
+- [ ] Document component usage
+- [ ] Setup admin panel for training data
+- [ ] Add analytics tracking
+- [ ] Implement user feedback collection
+
+---
+
+## 🔌 Integration Points
+
+### Where to Display Recommendations
+
+1. **Homepage/Dashboard** - Show trending recommendations
+2. **Search Results** - Show "You might also like" similar trips
+3. **Itinerary Detail Page** - Show similar itineraries
+4. **Profile/My Trips** - Recommendations based on past trips
+5. **Admin Dashboard** - Training data management
+
+### API Integration Points
+
+```typescript
+// In existing ItineraryService, add recommendation data
+onViewItinerary(id: string) {
+  // Load itinerary details
+  this.itineraryService.getById(id).subscribe(itinerary => {
+    // Also load similar recommendations
+    this.recommendationService.getSimilarRecommendations(id).subscribe(
+      recommendations => {
+        // Display alongside itinerary
+      }
+    );
+  });
+}
+```
+
+---
+
+## 📚 Documentation to Show Users
+
+In your UI, show users:
+1. What "Similarity Score" means (how close to their criteria)
+2. How "Rating" is calculated (0-5 scale)
+3. Why an itinerary was recommended
+4. How to refine search filters
+
+Example help text:
+```
+Similarity Score: Indicates how closely this itinerary matches your search criteria
+(higher score = better match)
+
+Rating: Quality rating based on itinerary completeness and user activity
+(4.5+ is considered highly recommended)
+```
+
+---
+
+## 🚀 Deployment Notes
+
+### Environment Variables
+```
+RECOMMENDATION_API_URL=http://localhost:8081/api/itinerary/recommendations
+RECOMMENDATION_CACHE_DURATION=3600  // seconds
+```
+
+### Feature Flags (Optional)
+```typescript
+if (featureFlags.aiRecommendations) {
+  // Show recommendation features
+}
+```
+
+### Analytics Events to Track
+```typescript
+// Track recommendation searches
+this.analytics.track('recommendation_search', {
+  budget: criteria.maxBudget,
+  location: criteria.location,
+  resultsCount: response.count
+});
+
+// Track itinerary views from recommendations
+this.analytics.track('recommendation_clicked', {
+  itineraryId: id,
+  similarityScore: similarity
+});
+```
+
+---
+
+## 💡 UI/UX Recommendations
+
+1. **Show loading skeletons** instead of spinners for better UX
+2. **Implement infinite scroll** for large result sets
+3. **Add filters sidebar** for easy refinement
+4. **Show "no results" state** with suggestions
+5. **Highlight best matches** with badges/stars
+6. **Add comparison view** to compare 2-3 itineraries
+7. **Show breakdown** of how budget is allocated
+8. **Add favorites** functionality to saved recommendations
+9. **Show "trending" recommendations** from popular searches
+10. **Add "save search"** functionality for quick re-use
+
+---
+
+## 🔐 Security Considerations
+
+1. **Validate user input** on frontend before sending
+2. **Sanitize API responses** to prevent XSS
+3. **Use HTTPS only** in production
+4. **Implement rate limiting** on frontend (debounce)
+5. **Don't expose itinerary IDs** in URLs if sensitive
+6. **Encrypt sensitive data** in localStorage if caching
+
+---
+
+## 📞 Support
+
+**Backend API Documentation:** See `AI_RECOMMENDATION_GUIDE.md` from backend
+
+**Test the API directly:**
+```bash
+curl -X POST http://localhost:8081/api/itinerary/recommendations/search \
+  -H "Content-Type: application/json" \
+  -d '{"maxBudget": 5000, "location": "Sousse", "limit": 5}'
+```
+
+---
+
+## ✅ All Done!
+
+You now have all the information needed to implement the AI recommendation feature in your Angular frontend. Start with the Service, then build Components, style them, and integrate into your existing pages.
+
+Good luck! 🚀
