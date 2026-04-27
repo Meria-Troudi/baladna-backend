@@ -15,10 +15,10 @@ public class TopicInferenceService {
 
     private final RestClient.Builder restClientBuilder;
 
-    @org.springframework.beans.factory.annotation.Value("${ollama.base-url:http://localhost:11434}")
+    @org.springframework.beans.factory.annotation.Value("${OLLAMA_BASE_URL:http://127.0.0.1:11434}")
     private String baseUrl;
 
-    @org.springframework.beans.factory.annotation.Value("${ollama.model:gemma3:1b}")
+    @org.springframework.beans.factory.annotation.Value("${OLLAMA_MODEL:qwen2.5:7b-instruct}")
     private String model;
 
     public record Result(PostTopic topic, double confidence, String reason) {}
