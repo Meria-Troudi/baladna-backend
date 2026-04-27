@@ -1,12 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<<<<<<< HEAD
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+=======
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+>>>>>>> origin/itinerary_backend
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>4.0.2</version>
+<<<<<<< HEAD
         <relativePath/> <!-- lookup parent from repository -->
+=======
+        <relativePath/>
+        <!--  lookup parent from repository  -->
+>>>>>>> origin/itinerary_backend
     </parent>
     <groupId>tn.esprit.spring</groupId>
     <artifactId>gestionUser</artifactId>
@@ -31,28 +40,40 @@
         <lombok.version>1.18.38</lombok.version>
     </properties>
     <dependencies>
+<<<<<<< HEAD
         <!-- JWT Dependencies -->
+=======
+>>>>>>> origin/itinerary_backend
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
             <version>0.11.5</version>
         </dependency>
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/itinerary_backend
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
             <version>0.11.5</version>
             <scope>runtime</scope>
         </dependency>
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/itinerary_backend
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
             <version>0.11.5</version>
             <scope>runtime</scope>
         </dependency>
+<<<<<<< HEAD
 
         <!-- Spring -->
+=======
+>>>>>>> origin/itinerary_backend
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -74,6 +95,7 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
         <dependency>
+<<<<<<< HEAD
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-json</artifactId>
         </dependency>
@@ -93,12 +115,17 @@
         <!-- Database -->
 
         <dependency>
+=======
+>>>>>>> origin/itinerary_backend
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
+<<<<<<< HEAD
 
         <!-- Lombok -->
+=======
+>>>>>>> origin/itinerary_backend
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -106,12 +133,16 @@
             <scope>provided</scope>
             <optional>true</optional>
         </dependency>
+<<<<<<< HEAD
 
         <!-- Jackson -->
+=======
+>>>>>>> origin/itinerary_backend
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
+<<<<<<< HEAD
 
         <!-- ZXing for QR Code Generation -->
         <dependency>
@@ -173,6 +204,8 @@
         </dependency>
 
         <!-- Tests -->
+=======
+>>>>>>> origin/itinerary_backend
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa-test</artifactId>
@@ -194,6 +227,7 @@
             <scope>test</scope>
         </dependency>
 
+<<<<<<< HEAD
         <!-- H2 test -->
         <dependency>
             <groupId>com.h2database</groupId>
@@ -232,12 +266,35 @@
     <build>
         <plugins>
              <plugin>
+=======
+        <!-- Added from second project -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+        </dependency>
+    </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+>>>>>>> origin/itinerary_backend
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.14.1</version>
                 <configuration>
                     <release>${java.version}</release>
+<<<<<<< HEAD
                     <encoding>${project.build.sourceEncoding}</encoding>
+=======
+>>>>>>> origin/itinerary_backend
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
@@ -261,5 +318,9 @@
             </plugin>
         </plugins>
     </build>
+<<<<<<< HEAD
 
 </project>
+=======
+</project>
+>>>>>>> origin/itinerary_backend

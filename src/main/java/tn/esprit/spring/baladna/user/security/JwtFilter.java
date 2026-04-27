@@ -29,17 +29,9 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-        return path.startsWith("/api/auth")
-        
-                || path.startsWith("/products")
-                || path.startsWith("/categories")
-                || path.startsWith("/favorites")
-               // || path.startsWith("/orders")
-                || path.startsWith("/reviews");
 
-
-
-
+        // Routes publiques seulement
+        return path.startsWith("/api/auth");
     }
 
     @Override
@@ -50,27 +42,25 @@ public class JwtFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String authHeader = request.getHeader("Authorization");
-        log.info("Request to: {} - Auth header: {}", request.getRequestURI(), authHeader != null ? "present" : "null");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.warn("No Bearer token found");
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
             String token = authHeader.substring(7);
-            log.info("Token extracted (length: {})", token.length());
 
             String email = jwtService.extractEmail(token);
-            log.info("Email extracted from token: {}", email);
 
-            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (email != null &&
+                    SecurityContextHolder.getContext().getAuthentication() == null) {
+
                 User user = userRepo.findByEmail(email).orElseThrow();
-                log.info("User found: {} with role: {}", user.getEmail(), user.getRole());
+
+                Long userId = jwtService.extractUserId(token);
 
                 String role = user.getRole().name();
-                log.info("Setting authentication with role: ROLE_{}", role);
 
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(
@@ -79,12 +69,16 @@ public class JwtFilter extends OncePerRequestFilter {
                                 List.of(new SimpleGrantedAuthority("ROLE_" + role))
                         );
 
+                // Important : garde l'ID user pour les autres services/controllers
+                authToken.setDetails(userId);
+
                 SecurityContextHolder.getContext().setAuthentication(authToken);
-                log.info("Authentication set successfully");
+
+                log.info("JWT authentication success for user: {}", user.getEmail());
             }
+
         } catch (Exception e) {
-            log.error("JWT Authentication failed: {}", e.getMessage());
-            log.error("Full exception: ", e);
+            log.warn("JWT invalid or expired: {}", e.getMessage());
         }
 
         filterChain.doFilter(request, response);

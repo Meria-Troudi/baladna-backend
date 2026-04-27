@@ -1,0 +1,401 @@
+================================================================================
+FRONTEND GOOGLE CALENDAR OAUTH FIX - DETAILED IMPLEMENTATION GUIDE
+================================================================================
+
+PROBLEM SUMMARY
+================================================================================
+The Google Calendar integration is failing because:
+
+1. COOP SECURITY ISSUE: Browser Cross-Origin-Opener-Policy blocks window.closed 
+   Error: "Cross-Origin-Opener-Policy policy would block the window.closed call"
+   
+2. INCOMPLETE OAUTH FLOW: After user authorizes on Google, the popup doesn't 
+   properly communicate back to the main window
+   
+3. NO CALLBACK HANDLER: Frontend is missing a component to handle Google's OAuth 
+   redirect and complete the authorization flow
+
+4. BACKEND IS READY: The backend now allows the callback endpoint without JWT
+   (/api/itineraries/calendar/oauth/callback is in permitAll)
+
+
+WHAT HAPPENS NOW (BROKEN)
+================================================================================
+1. User clicks "Connect to Google Calendar" button
+2. Frontend opens Google OAuth URL in popup
+3. User authorizes on Google login page
+4. Google redirects popup to: http://localhost:8081/api/itineraries/calendar/oauth/callback?code=XXX&state=1
+5. BROKEN: No frontend callback page to handle this redirect
+6. BROKEN: Popup window.closed check fails due to COOP policy
+7. ERROR: "Error connecting to Google Calendar {message: 'Authorization cancelled by user.'}"
+
+
+WHAT SHOULD HAPPEN (FIXED)
+================================================================================
+1. User clicks "Connect to Google Calendar" button
+2. Frontend opens Google OAuth URL in popup using postMessage approach
+3. User authorizes on Google login page
+4. Google redirects popup to OAuth callback component
+5. FIXED: Frontend callback component receives the code
+6. FIXED: Callback component exchanges code for tokens via backend
+7. FIXED: Callback component sends postMessage to main window with result
+8. Main window receives message and closes popup
+9. SUCCESS: "Connected to Google Calendar" message appears
+
+
+FILES TO MODIFY/CREATE
+================================================================================
+1. google-calendar.service.ts - Update connectToGoogleCalendar() method
+2. planning-calendar-modal.component.ts - Already has error handling, just verify
+3. app-routing.module.ts - Add route for OAuth callback component
+4. oauth-callback.component.ts - CREATE NEW component to handle redirect
+
+
+DETAILED CHANGES REQUIRED
+================================================================================
+
+STEP 1: CREATE NEW COMPONENT FOR OAuth CALLBACK
+FILE: src/app/components/oauth-callback/oauth-callback.component.ts
+CREATE THIS NEW FILE:
+
+---BEGIN FILE---
+import { Component, OnInit } from '@angular/core';
+import { GoogleCalendarService } from 'path-to-your-service/google-calendar.service';
+
+@Component({
+  selector: 'app-oauth-callback',
+  template: '<div style="text-align: center; margin-top: 50px;"><p>Processing authorization...</p></div>',
+  styleUrls: []
+})
+export class OAuthCallbackComponent implements OnInit {
+  constructor(private googleCalendarService: GoogleCalendarService) {}
+
+  ngOnInit(): void {
+    // Extract query parameters from URL
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    const error = params.get('error');
+
+    console.log('OAuth callback received:', { code: !!code, state, error });
+
+    // If error from Google
+    if (error) {
+      console.error('OAuth error from Google:', error);
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'GOOGLE_CALENDAR_AUTH_ERROR',
+          error: error || 'Authorization cancelled by user'
+        }, window.location.origin);
+      }
+      window.close();
+      return;
+    }
+
+    // If we have code and state, exchange code for tokens
+    if (code && state) {
+      console.log('Exchanging authorization code for tokens...');
+      
+      this.googleCalendarService.completeOAuthCallback(code, state)
+        .subscribe({
+          next: (response) => {
+            console.log('OAuth callback successful:', response);
+            // Send success message to opener window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'GOOGLE_CALENDAR_AUTH_SUCCESS',
+                payload: response
+              }, window.location.origin);
+            }
+            // Close popup after brief delay
+            setTimeout(() => window.close(), 500);
+          },
+          error: (err) => {
+            console.error('Error exchanging authorization code:', err);
+            // Send error message to opener window
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'GOOGLE_CALENDAR_AUTH_ERROR',
+                error: err.message || 'Failed to complete authorization'
+              }, window.location.origin);
+            }
+            setTimeout(() => window.close(), 500);
+          }
+        });
+    } else {
+      // Missing code or state
+      console.error('Missing authorization code or state parameter');
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'GOOGLE_CALENDAR_AUTH_ERROR',
+          error: 'Missing authorization code. Please try again.'
+        }, window.location.origin);
+      }
+      window.close();
+    }
+  }
+}
+---END FILE---
+
+
+STEP 2: ADD ROUTE FOR OAuth CALLBACK COMPONENT
+FILE: src/app/app-routing.module.ts
+ADD THIS ROUTE:
+
+---BEGIN ADDITION---
+// Add to your routes array:
+{
+  path: 'oauth-callback',
+  component: OAuthCallbackComponent
+}
+---END ADDITION---
+
+IMPORTANT: Make sure OAuthCallbackComponent is:
+- Declared in your module (app.module.ts)
+- Added to imports if using standalone component
+
+
+STEP 3: UPDATE google-calendar.service.ts
+FILE: src/app/services/google-calendar.service.ts
+
+REPLACE the connectToGoogleCalendar() method completely.
+The old method uses polling with window.closed which causes COOP errors.
+
+---BEGIN REPLACEMENT---
+connectToGoogleCalendar(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    // Get authorization URL from backend
+    this.http.get<string>('/api/itineraries/calendar/auth-url')
+      .subscribe({
+        next: (authUrl: string) => {
+          console.log('Opening Google Calendar authorization URL');
+          
+          // Calculate popup position to center it on screen
+          const width = 500;
+          const height = 600;
+          const left = window.screenX + (window.outerWidth - width) / 2;
+          const top = window.screenY + (window.outerHeight - height) / 2;
+          
+          // Open popup window
+          const popup = window.open(
+            authUrl,
+            'GoogleCalendarAuth',
+            `width=${width},height=${height},left=${left},top=${top}`
+          );
+          
+          if (!popup) {
+            reject(new Error('Failed to open authorization popup. Please check your browser popup blocker settings.'));
+            return;
+          }
+
+          // Set up message listener to receive response from popup
+          const messageHandler = (event: MessageEvent) => {
+            // Security check: verify message comes from same origin
+            if (!event.origin.includes(window.location.hostname)) {
+              console.warn('Ignoring message from untrusted origin:', event.origin);
+              return;
+            }
+
+            // Handle successful authorization
+            if (event.data.type === 'GOOGLE_CALENDAR_AUTH_SUCCESS') {
+              console.log('OAuth authorization successful');
+              window.removeEventListener('message', messageHandler);
+              clearTimeout(timeout);
+              resolve(event.data.payload);
+            } 
+            // Handle authorization error
+            else if (event.data.type === 'GOOGLE_CALENDAR_AUTH_ERROR') {
+              console.error('OAuth authorization error:', event.data.error);
+              window.removeEventListener('message', messageHandler);
+              clearTimeout(timeout);
+              reject(new Error(event.data.error || 'Authorization failed'));
+            }
+          };
+
+          // Register message event listener
+          window.addEventListener('message', messageHandler);
+
+          // Timeout after 60 seconds (user takes too long to authorize)
+          const timeout = setTimeout(() => {
+            window.removeEventListener('message', messageHandler);
+            reject(new Error('Authorization timeout. Please try again.'));
+          }, 60000);
+        },
+        error: (err) => {
+          reject(new Error('Failed to get authorization URL: ' + err.message));
+        }
+      });
+  });
+}
+---END REPLACEMENT---
+
+
+STEP 4: ADD NEW METHOD TO google-calendar.service.ts
+FILE: src/app/services/google-calendar.service.ts
+
+ADD THIS NEW METHOD to the GoogleCalendarService class:
+
+---BEGIN NEW METHOD---
+completeOAuthCallback(code: string, state: string): Observable<any> {
+  console.log('Calling backend to exchange authorization code');
+  return this.http.get<any>(
+    '/api/itineraries/calendar/oauth/callback',
+    { 
+      params: { 
+        code: code, 
+        state: state 
+      } 
+    }
+  ).pipe(
+    catchError((error) => {
+      console.error('Error in OAuth callback:', error);
+      return throwError(() => error);
+    })
+  );
+}
+---END NEW METHOD---
+
+Make sure you have these imports at the top of google-calendar.service.ts:
+import { Observable, throwError } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+
+
+STEP 5: VERIFY planning-calendar-modal.component.ts
+FILE: src/app/components/planning-calendar-modal/planning-calendar-modal.component.ts
+
+The connectToGoogleCalendar() method should already handle promises correctly.
+Just verify it looks like this:
+
+---BEGIN VERIFICATION---
+connectToGoogleCalendar() {
+  this.googleCalendarService.connectToGoogleCalendar()
+    .then((response) => {
+      console.log('Successfully connected to Google Calendar', response);
+      // Refresh calendar status
+      this.checkCalendarStatus();
+      // Show success message (if you have a notification service)
+      // this.notificationService.showSuccess('Connected to Google Calendar');
+    })
+    .catch((error) => {
+      console.error('Error connecting to Google Calendar:', error);
+      // Show error message (if you have a notification service)
+      // this.notificationService.showError(error.message || 'Failed to connect to Google Calendar');
+    });
+}
+---END VERIFICATION---
+
+
+SUMMARY OF CHANGES
+================================================================================
+1. CREATE: oauth-callback.component.ts (new component for handling redirect)
+2. MODIFY: app-routing.module.ts (add route for oauth-callback)
+3. MODIFY: google-calendar.service.ts 
+   - Replace connectToGoogleCalendar() method completely
+   - Add new completeOAuthCallback() method
+4. VERIFY: planning-calendar-modal.component.ts (should already work)
+
+
+TESTING CHECKLIST
+================================================================================
+[ ] 1. Run: ng serve (frontend development server running)
+[ ] 2. Backend is running: npm spring-boot:run or Maven equivalent
+[ ] 3. In browser console, check for no errors
+[ ] 4. Click "Connect to Google Calendar" button
+[ ] 5. Popup opens with Google login page
+[ ] 6. Login with your Google account
+[ ] 7. Authorize calendar access when prompted
+[ ] 8. Popup automatically closes
+[ ] 9. Main window shows success (no error message)
+[ ] 10. Check backend logs for: "OAuth callback received" and "Successfully processed"
+
+
+EXPECTED BACKEND LOGS (after fix is working)
+================================================================================
+You should see these logs:
+
+INFO Auth URL requested for user: 1
+INFO OAuth callback received. State: 1, Has code: true, Error: null
+INFO Successfully processed OAuth callback for user: 1
+
+
+TROUBLESHOOTING
+================================================================================
+
+IF: Popup doesn't open
+FIX: Check browser popup blocker settings, whitelist localhost:4200
+
+IF: "Authorization cancelled by user" error
+FIX: The popup closed or user denied access
+ACTION: Try again, make sure to grant calendar permission
+
+IF: "Authorization timeout" error
+FIX: Taking too long to authorize (over 60 seconds)
+ACTION: Try again, faster this time
+
+IF: Backend logs show 403 Forbidden
+FIX: Backend fix hasn't been applied properly
+ACTION: Verify SecurityConfig.java has the callback endpoint in permitAll()
+
+IF: postMessage not being received
+FIX: Check if oauth-callback component exists and route is registered
+ACTION: Verify component path and route definition
+
+IF: "Missing authorization code" error
+FIX: OAuth callback URL parameters are incorrect
+ACTION: Check if redirect_uri in backend config matches frontend route
+
+
+COMMON MISTAKES TO AVOID
+================================================================================
+
+1. WRONG: Not creating the OAuthCallbackComponent
+   RIGHT: Create new component file with the exact code provided
+
+2. WRONG: Not adding the route to app-routing.module.ts
+   RIGHT: Add the oauth-callback route before your wildcard route
+
+3. WRONG: Not updating the connectToGoogleCalendar() method completely
+   RIGHT: Replace the entire old method with the new postMessage version
+
+4. WRONG: Forgetting to add completeOAuthCallback() method
+   RIGHT: Add this new method to the service
+
+5. WRONG: Not importing the new component in module
+   RIGHT: Make sure OAuthCallbackComponent is in declarations or imports
+
+6. WRONG: OAuth callback URL doesn't match frontend route
+   Example: If route is /oauth-callback, URL must match exactly
+   RIGHT: Verify backend config has correct redirect_uri
+
+
+SECURITY NOTES
+================================================================================
+- postMessage includes origin verification: 
+  if (!event.origin.includes(window.location.hostname))
+  
+- This ensures only same-origin popups can communicate
+  
+- Authorization code is never exposed to browser console in production
+  
+- All sensitive operations happen server-side in backend
+
+
+QUESTIONS?
+================================================================================
+If any of the following still fails after implementation:
+- Popup doesn't open
+- Popup closes but no success message
+- Backend doesn't receive callback
+- Authorization fails
+
+Check:
+1. Browser console for JavaScript errors (F12 -> Console tab)
+2. Network tab (F12 -> Network) to see HTTP requests
+3. Backend logs for error messages
+4. Verify all routes and component paths are correct
+
+Then share these details for debugging.
+
+
+END OF DOCUMENT
+================================================================================
