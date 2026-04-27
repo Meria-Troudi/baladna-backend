@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tn.esprit.spring.baladna.event.dto.ReservationWithEventDTO;
 import tn.esprit.spring.baladna.event.entity.Event;
 import tn.esprit.spring.baladna.event.entity.EventReservation;
+import tn.esprit.spring.baladna.event.entity.enums.EventStatus;
 import tn.esprit.spring.baladna.event.entity.enums.PaymentStatus;
 import tn.esprit.spring.baladna.event.entity.enums.ReservationStatus;
 import tn.esprit.spring.baladna.event.repository.EventRepository;
@@ -36,6 +37,38 @@ public class EventReservationServiceImpl implements IEventReservationService {
     private final EventRepository eventRepository;
     private final QrService qrService;
 
+    private int safeBookedSeats(Event event) {
+        return event.getBookedSeats() == null ? 0 : event.getBookedSeats();
+    }
+
+    private int safeCapacity(Event event) {
+        return event.getCapacity() == null ? 0 : event.getCapacity();
+    }
+
+    private double safePrice(Event event) {
+        return event.getPrice() == null ? 0.0 : event.getPrice();
+    }
+
+    private int safePersonsCount(EventReservation reservation) {
+        return reservation.getPersonsCount() == null ? 0 : reservation.getPersonsCount();
+    }
+
+    private boolean isEventReservable(Event event) {
+        EventStatus status = event.getStatus();
+        return status == EventStatus.UPCOMING || status == EventStatus.ONGOING;
+    }
+
+    private void ensureReservableEvent(Event event) {
+        if (!isEventReservable(event)) {
+            throw new IllegalStateException("Reservations can only be confirmed for UPCOMING or ONGOING events");
+        }
+    }
+
+    private void addBookedSeats(Event event, int delta) {
+        int next = Math.max(0, safeBookedSeats(event) + delta);
+        event.setBookedSeats(next);
+    }
+
     @Override
     public java.util.Optional<EventReservation> findByStripePaymentIntentId(String stripePaymentIntentId) {
         return reservationRepository.findByStripePaymentIntentId(stripePaymentIntentId);
@@ -64,30 +97,37 @@ public class EventReservationServiceImpl implements IEventReservationService {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
 
-        boolean isFree = event.getPrice() == null || event.getPrice() == 0.0;
-        boolean isFull = event.getBookedSeats() >= event.getCapacity();
+        if (personsCount < 1 || personsCount > 10) {
+            throw new IllegalArgumentException("Persons count must be between 1 and 10");
+        }
+
+        int capacity = safeCapacity(event);
+        int bookedSeats = safeBookedSeats(event);
+        int remainingSeats = Math.max(0, capacity - bookedSeats);
+        boolean isFree = safePrice(event) == 0.0;
+        boolean shouldWaitlist = personsCount > remainingSeats;
 
         EventReservation reservation = new EventReservation();
         reservation.setEvent(event);
         reservation.setUserId(userId);
         reservation.setPersonsCount(personsCount);
-        reservation.setTotalPrice(event.getPrice() * personsCount);
+        reservation.setTotalPrice(safePrice(event) * personsCount);
         reservation.setCreatedAt(LocalDateTime.now());
 
-        if (isFull) {
+        if (shouldWaitlist) {
             reservation.setStatus(ReservationStatus.WAITLISTED);
             reservation.setPaymentStatus(PaymentStatus.PENDING);
             reservation.setQrToken(null);
             reservation.setQrCodeImageBase64(null);
         } else if (isFree) {
+            ensureReservableEvent(event);
             reservation.setStatus(ReservationStatus.CONFIRMED);
             reservation.setPaymentStatus(PaymentStatus.PAID);
             String qrToken = qrService.generateToken(reservation);
             String qrImage = qrService.generateQrImageBase64(qrToken);
             reservation.setQrToken(qrToken);
             reservation.setQrCodeImageBase64(qrImage);
-            // Only increment bookedSeats for confirmed reservations
-            event.setBookedSeats(event.getBookedSeats() + personsCount);
+            addBookedSeats(event, personsCount);
             eventRepository.save(event);
         } else {
             reservation.setStatus(ReservationStatus.PENDING);
@@ -121,7 +161,7 @@ public class EventReservationServiceImpl implements IEventReservationService {
         reservation.setCancelledAt(LocalDateTime.now());
 
         if (wasConfirmed) {
-            event.setBookedSeats(event.getBookedSeats() - reservation.getPersonsCount());
+            addBookedSeats(event, -safePersonsCount(reservation));
             eventRepository.save(event);
         }
 
@@ -143,13 +183,18 @@ return reservationRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
     private void promoteWaitlist(Event event) {
+        if (!isEventReservable(event)) {
+            return;
+        }
+
         List<EventReservation> waitlist = reservationRepository
                 .findByEventAndStatusOrderByCreatedAtAsc(event, ReservationStatus.WAITLISTED);
 
-        int availableSeats = event.getCapacity() - event.getBookedSeats();
+        int availableSeats = Math.max(0, safeCapacity(event) - safeBookedSeats(event));
 
         for (EventReservation r : waitlist) {
-            if (availableSeats >= r.getPersonsCount()) {
+            int personsCount = safePersonsCount(r);
+            if (availableSeats >= personsCount) {
                 // Confirm reservation
                 r.setStatus(ReservationStatus.CONFIRMED);
                 String qrToken = qrService.generateToken(r);
@@ -157,8 +202,8 @@ return reservationRepository.findByUserIdOrderByCreatedAtDesc(userId);
                 r.setQrToken(qrToken);
                 r.setQrCodeImageBase64(qrImage);
 
-                availableSeats -= r.getPersonsCount();
-                event.setBookedSeats(event.getBookedSeats() + r.getPersonsCount());
+                availableSeats -= personsCount;
+                addBookedSeats(event, personsCount);
 
                 reservationRepository.save(r);
                 // TODO: notify user (email / notification)
@@ -233,9 +278,9 @@ return reservationRepository.findByUserIdAndStatusIn(
             throw new IllegalArgumentException("Reservation does not belong to the specified event");
         }
 
-        int oldPersonsCount = reservation.getPersonsCount();
+        int oldPersonsCount = safePersonsCount(reservation);
         int personsDiff = personsCount - oldPersonsCount;
-        int availableSeats = event.getCapacity() - event.getBookedSeats() + oldPersonsCount;
+        int availableSeats = Math.max(0, safeCapacity(event) - safeBookedSeats(event) + oldPersonsCount);
 
         // For pending reservations, check seat availability
         if (personsDiff > 0 && availableSeats < personsCount) {
@@ -248,7 +293,7 @@ return reservationRepository.findByUserIdAndStatusIn(
 
         // Update reservation
         reservation.setPersonsCount(personsCount);
-        reservation.setTotalPrice(event.getPrice() * personsCount);
+        reservation.setTotalPrice(safePrice(event) * personsCount);
 
         return reservationRepository.save(reservation);
     }

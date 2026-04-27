@@ -16,6 +16,7 @@ public class JwtService {
     // Clé sécurisée générée automatiquement (256 bits garanti)
     private final Key secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
 
+
     public String generateToken(User user) {
         return Jwts.builder()
                 .setSubject(user.getEmail())

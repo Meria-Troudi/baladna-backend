@@ -13,7 +13,7 @@ import tn.esprit.spring.baladna.event.service.impl.EventMailService;
 @RestController
 @RequestMapping("/api/events/payments")
 @RequiredArgsConstructor
-public class PaymentController {
+public class PaymenteventController {
 
     private final StripeService stripeService;
     private final IEventReservationService reservationService;

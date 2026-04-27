@@ -120,9 +120,28 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/accommodations/*/cover").hasAnyRole("HOST", "ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/accommodations/*").hasAnyRole("HOST", "ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/accommodations/*").hasAnyRole("HOST", "ADMIN")
+                        // ✅ ARTISAN
 
-                        .requestMatchers("/api/artisan/**").hasRole("ARTISAN")
+                        .requestMatchers(
+                                "/api/marketplace/public/**",
+                                // 🔽 AJOUTS IMPORTANTS pour le marketplace sans /api
+                                "/api/ai/**",                    // ← AJOUTE CECI
+                                "/products/**",
+                                "/categories/**",
+                                "/reviews/**"
+                        ).permitAll()
+                        .requestMatchers("/api/marketplace/admin/**" ).hasRole("ADMIN")
+                        .requestMatchers(  "/api/marketplace/host/**").hasRole("HOST")
+                        .requestMatchers( "/api/artisan/**", "/api/marketplace/artisan/**" ).hasRole("ARTISAN")
 
+                        .requestMatchers( "/api/marketplace/tourist/**").hasRole("TOURIST")
+                        .requestMatchers("/cart/**","/orders/**","/api/factures/**",  "/favorites/**" ).authenticated()
+                        // ✅ MARKETPLACE (routes générales avec /api)
+                        .requestMatchers(
+                                "/api/products/**",
+                                "/api/categories/**",
+                                "/api/reviews/**"
+                        ).permitAll()
                         
                         .anyRequest().authenticated()
                 )

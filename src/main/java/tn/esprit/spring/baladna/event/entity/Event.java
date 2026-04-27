@@ -48,11 +48,15 @@ public class Event {
     private Double latitude;
     private Double longitude;
 
+    @Column(nullable = false)
     private Integer capacity;
+
     @Builder.Default
+    @Column(name = "booked_seats", nullable = false)
     private Integer bookedSeats = 0;
 
     @Builder.Default
+    @Column(nullable = false)
     private Double price = 0.0;
 
     @Enumerated(EnumType.STRING)
@@ -76,4 +80,31 @@ public class Event {
     @JsonManagedReference("event-media")
     @Builder.Default
     private List<EventMedia> media = new ArrayList<>();
+
+    @PrePersist
+    @PreUpdate
+    private void normalizeAndValidate() {
+        if (price == null) {
+            price = 0.0;
+        }
+        if (bookedSeats == null) {
+            bookedSeats = 0;
+        }
+        if (capacity == null) {
+            capacity = 0;
+        }
+
+        if (price < 0) {
+            throw new IllegalArgumentException("Event price must be non-negative");
+        }
+        if (capacity < 0) {
+            throw new IllegalArgumentException("Event capacity must be non-negative");
+        }
+        if (bookedSeats < 0) {
+            throw new IllegalArgumentException("Event bookedSeats must be non-negative");
+        }
+        if (bookedSeats > capacity) {
+            throw new IllegalArgumentException("Event bookedSeats cannot exceed capacity");
+        }
+    }
 }

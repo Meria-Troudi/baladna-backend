@@ -9,7 +9,7 @@ import tn.esprit.spring.baladna.event.entity.Event;
 import tn.esprit.spring.baladna.event.entity.EventMedia;
 import tn.esprit.spring.baladna.event.entity.enums.MediaType;
 import tn.esprit.spring.baladna.event.repository.EventMediaRepository;
-import tn.esprit.spring.baladna.event.service.impl.CloudinaryService;
+import tn.esprit.spring.baladna.event.service.impl.evCloudinaryService;
 import tn.esprit.spring.baladna.event.service.interfaces.EventService;
 import tn.esprit.spring.baladna.event.service.interfaces.IEventMediaService;
 
@@ -29,7 +29,7 @@ public class EventMediaController {
     private final IEventMediaService mediaService;
     private final EventService eventService;
     private final EventMediaRepository mediaRepository;
-    private final CloudinaryService cloudinaryService;
+    private final evCloudinaryService cloudinaryService;
 
     @GetMapping("/event-media/list")
     public List<EventMedia> retrieveEventMedias() {

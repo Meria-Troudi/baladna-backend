@@ -15,26 +15,26 @@ public class EventServiceImpl implements EventService {
     private final EventRepository eventRepository;
 
     @Override
-    public List<Event> retrieveEvents() {
-        List<Event> events = eventRepository.findAll();
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        for (Event event : events) {
-            if (event.getStartAt() != null) {
-                if (event.getStartAt().isAfter(now)) {
-                    if (event.getStatus() != tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING) {
-                        event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING);
-                        eventRepository.save(event);
-                    }
-                } else {
-                    if (event.getStatus() != tn.esprit.spring.baladna.event.entity.enums.EventStatus.FINISHED) {
-                        event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.FINISHED);
-                        eventRepository.save(event);
-                    }
+public List<Event> retrieveEvents() {
+    List<Event> events = eventRepository.findAll();
+    java.time.LocalDateTime now = java.time.LocalDateTime.now();
+    for (Event event : events) {
+        if (event.getStartAt() != null) {
+            if (event.getStartAt().isAfter(now)) {
+                if (event.getStatus() != tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING) {
+                    event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING);
+                    eventRepository.save(event);
+                }
+            } else {
+                if (event.getStatus() != tn.esprit.spring.baladna.event.entity.enums.EventStatus.FINISHED) {
+                    event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.FINISHED);
+                    eventRepository.save(event);
                 }
             }
         }
-        return events;
     }
+    return events;
+}
 
     @Override
     public Event addEvent(Event event) {
@@ -98,21 +98,21 @@ public class EventServiceImpl implements EventService {
         }
         event.setLocation(dto.getLocation());
         event.setStartAt(dto.getStartAt());
-        event.setEndAt(dto.getEndAt());
+event.setEndAt(dto.getEndAt());
 // Auto-update status based on start date
-        if (dto.getStartAt() != null) {
-            if (dto.getStartAt().isAfter(java.time.LocalDateTime.now())) {
-                event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING);
-            } else {
-                event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.FINISHED);
-            }
-        } else if (dto.getStatus() != null) {
-            try {
-                event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.valueOf(dto.getStatus().toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                // Keep existing status if invalid
-            }
-        }
+if (dto.getStartAt() != null) {
+    if (dto.getStartAt().isAfter(java.time.LocalDateTime.now())) {
+        event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING);
+    } else {
+        event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.FINISHED);
+    }
+} else if (dto.getStatus() != null) {
+    try {
+        event.setStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus.valueOf(dto.getStatus().toUpperCase()));
+    } catch (IllegalArgumentException e) {
+        // Keep existing status if invalid
+    }
+}
         event.setLatitude(dto.getLatitude());
         event.setLongitude(dto.getLongitude());
         event.setCapacity(dto.getCapacity());
@@ -158,21 +158,21 @@ public class EventServiceImpl implements EventService {
     public List<Event> getEventsWithMedia() {
         // Fallback: return all events with non-empty media list
         return eventRepository.findAll().stream()
-                .filter(e -> e.getMedia() != null && !e.getMedia().isEmpty())
-                .toList();
+            .filter(e -> e.getMedia() != null && !e.getMedia().isEmpty())
+            .toList();
     }
 
     @Override
     public List<Event> getEventsByStatus(tn.esprit.spring.baladna.event.entity.enums.EventStatus status) {
         return eventRepository.findAll().stream()
-                .filter(e -> e.getStatus() == status)
-                .toList();
+            .filter(e -> e.getStatus() == status)
+            .toList();
     }
 
     @Override
     public List<Event> getUpcomingEvents() {
         return eventRepository.findAll().stream()
-                .filter(e -> e.getStatus() == tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING)
-                .toList();
+            .filter(e -> e.getStatus() == tn.esprit.spring.baladna.event.entity.enums.EventStatus.UPCOMING)
+            .toList();
     }
 }

@@ -25,8 +25,9 @@ public class EventStateServiceImpl implements EventStateService {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new RuntimeException("Event not found"));
 
-        boolean full = event.getCapacity() != null && event.getBookedSeats() != null
-                && event.getBookedSeats() >= event.getCapacity();
+        int capacity = event.getCapacity() == null ? 0 : event.getCapacity();
+        int bookedSeats = event.getBookedSeats() == null ? 0 : event.getBookedSeats();
+        boolean full = bookedSeats >= capacity;
         boolean past = event.getStartAt() != null && event.getStartAt().isBefore(LocalDateTime.now());
 
         EventReservation reservation = reservationRepository

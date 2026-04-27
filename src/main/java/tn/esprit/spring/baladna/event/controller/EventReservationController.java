@@ -52,10 +52,11 @@ public class EventReservationController {
         reservationService.cancelReservation(id);
     }
 
-    @GetMapping("/users/me/reservations")
-    public List<EventReservation> getMyReservations(Authentication authentication) {
-        return reservationService.getUserReservations(resolveUserId(authentication));
-    }
+@GetMapping("/users/me/reservations")
+public List<ReservationWithEventDTO> getMyReservations(Authentication authentication) {
+    // Updated to return DTO with event details for UI compatibility
+    return reservationService.getUserReservationsWithEvent(resolveUserId(authentication));
+}
 
     @GetMapping("/events/{eventId}/reservations")
     public List<ReservationWithEventDTO> getEventReservations(@PathVariable Long eventId) {
