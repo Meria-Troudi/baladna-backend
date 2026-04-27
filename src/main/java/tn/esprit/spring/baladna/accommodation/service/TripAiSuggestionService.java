@@ -161,10 +161,7 @@ public class TripAiSuggestionService {
                 .build();
     }
 
-    /**
-     * Prefer IPv4 loopback: on many Windows setups {@code localhost} resolves to {@code ::1} first while Ollama
-     * listens on IPv4 only, which causes long connection delays then failure.
-     */
+
     private URI ollamaGenerateUri() throws URISyntaxException {
         String base = (ollamaBaseUrl == null || ollamaBaseUrl.isBlank())
                 ? "http://127.0.0.1:11434"
