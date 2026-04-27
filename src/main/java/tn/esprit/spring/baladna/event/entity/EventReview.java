@@ -7,6 +7,9 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "event_review", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"event_id", "user_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -31,7 +34,7 @@ public class EventReview {
 
     private Integer rating;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(length = 500)
     private String comment;
 
     @Column(columnDefinition = "TEXT")

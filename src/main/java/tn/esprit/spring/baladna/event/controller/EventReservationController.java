@@ -1,10 +1,15 @@
 package tn.esprit.spring.baladna.event.controller;
 
 import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import tn.esprit.spring.baladna.event.dto.EventReservationDTO;
+import org.springframework.web.server.ResponseStatusException;
+import tn.esprit.spring.baladna.event.dto.ReservationWithEventDTO;
 import tn.esprit.spring.baladna.event.entity.EventReservation;
-import tn.esprit.spring.baladna.event.service.IEventReservationService;
+import tn.esprit.spring.baladna.event.service.interfaces.IEventReservationService;
+import tn.esprit.spring.baladna.user.entity.User;
+import tn.esprit.spring.baladna.user.repository.UserRepository;
 
 import java.util.List;
 
@@ -14,29 +19,70 @@ import java.util.List;
 public class EventReservationController {
 
     private final IEventReservationService reservationService;
+    private final UserRepository userRepository;
 
-    @GetMapping("/list")
-    public List<EventReservation> retrieveEventReservations() {
-        return reservationService.retrieveEventReservations();
+    private Long resolveUserId(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equals(String.valueOf(authentication.getPrincipal()))) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+
+        String email = authentication.getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+
+        return user.getId();
     }
 
-    @GetMapping("/get/{id}")
-    public EventReservation retrieveEventReservation(@PathVariable Long id) {
-        return reservationService.retrieveEventReservation(id);
+    @GetMapping("/confirmed-waitlisted")
+    public List<EventReservation> getLastConfirmedOrWaitlistedReservations() {
+        return reservationService.getLastConfirmedOrWaitlistedReservations();
     }
 
-    @PostMapping("/add")
-    public EventReservation addEventReservation(@RequestBody EventReservationDTO reservation) {
-        return reservationService.addEventReservation(reservation);
+    @PostMapping("/events/{eventId}/reserve")
+    public EventReservation createReservation(
+            @PathVariable Long eventId,
+            @RequestParam int persons,
+            Authentication authentication) {
+        return reservationService.createReservation(eventId, resolveUserId(authentication), persons);
     }
 
-    @PutMapping("/update")
-    public EventReservation updateEventReservation(@RequestBody EventReservationDTO reservation) {
-        return reservationService.updateEventReservation(reservation);
+    @PutMapping("/reservations/{id}/cancel")
+    public void cancelReservation(@PathVariable Long id) {
+        reservationService.cancelReservation(id);
     }
 
-    @DeleteMapping("/delete/{id}")
-    public void removeEventReservation(@PathVariable Long id) {
-        reservationService.removeEventReservation(id);
+@GetMapping("/users/me/reservations")
+public List<ReservationWithEventDTO> getMyReservations(Authentication authentication) {
+    // Updated to return DTO with event details for UI compatibility
+    return reservationService.getUserReservationsWithEvent(resolveUserId(authentication));
+}
+
+    @GetMapping("/events/{eventId}/reservations")
+    public List<ReservationWithEventDTO> getEventReservations(@PathVariable Long eventId) {
+        return reservationService.getEventReservationsWithEvent(eventId);
+    }
+
+    @GetMapping("/users/me/reserved-event-ids")
+    public List<Long> getReservedEventIds(Authentication authentication) {
+        return reservationService.getReservedEventIdsByUser(resolveUserId(authentication));
+    }
+
+    @PutMapping("/events/{eventId}/reservations/{reservationId}")
+    public EventReservation updateReservation(
+            @PathVariable Long eventId,
+            @PathVariable Long reservationId,
+            @RequestParam int persons) {
+        return reservationService.updateReservation(eventId, reservationId, persons);
+    }
+
+    @GetMapping("/with-event/{id}")
+    public ReservationWithEventDTO getReservationWithEvent(@PathVariable Long id) {
+        return reservationService.getReservationWithEvent(id);
+    }
+
+    @GetMapping("/all")
+    public List<ReservationWithEventDTO> getAllReservations() {
+        return reservationService.getAllReservationsWithEvent();
     }
 }

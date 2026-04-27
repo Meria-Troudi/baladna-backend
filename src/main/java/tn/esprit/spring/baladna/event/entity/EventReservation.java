@@ -17,17 +17,29 @@ import java.time.LocalDateTime;
 @Builder
 public class EventReservation {
 
+    // Returns the QR code image in base64 format (for compatibility)
+    public String getQrCode() {
+        return qrCodeImageBase64;
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "event_id")
-    @JsonBackReference("event-reservation")
     private Event event;
 
-    @Column(name = "tourist_user_id")
-    private Long touristUserId;
+@Column(name = "user_id")
+private Long userId;
+
+public Long getUserId() {
+    return userId;
+}
+
+public void setUserId(Long userId) {
+    this.userId = userId;
+}
 
     private Integer personsCount;
 
@@ -36,11 +48,20 @@ public class EventReservation {
     @Enumerated(EnumType.STRING)
     private ReservationStatus status;
 
-    @Column(columnDefinition = "TEXT")
-    private String qrCode;
+    // QR token for validation (signed string)
+    @Column(name = "qr_token", columnDefinition = "TEXT")
+    private String qrToken;
+
+    // QR code image for frontend display (base64 PNG)
+    @Column(name = "qr_code_image_base64", columnDefinition = "TEXT")
+    private String qrCodeImageBase64;
+
 
     @Enumerated(EnumType.STRING)
     private PaymentStatus paymentStatus;
+
+    @Column(name = "stripe_payment_intent_id")
+    private String stripePaymentIntentId;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)

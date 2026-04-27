@@ -8,7 +8,7 @@ import tn.esprit.spring.baladna.event.entity.EventMedia;
 import tn.esprit.spring.baladna.event.entity.enums.MediaType;
 import tn.esprit.spring.baladna.event.repository.EventRepository;
 import tn.esprit.spring.baladna.event.repository.EventMediaRepository;
-import tn.esprit.spring.baladna.event.service.IEventMediaService;
+import tn.esprit.spring.baladna.event.service.interfaces.IEventMediaService;
 
 import java.util.List;
 

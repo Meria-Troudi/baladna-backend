@@ -1,7 +1,10 @@
 package tn.esprit.spring.baladna.event.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import tn.esprit.spring.baladna.event.entity.enums.EventStatus;
+import tn.esprit.spring.baladna.event.entity.enums.EventCategory;
+import tn.esprit.spring.baladna.event.entity.EventMedia;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
@@ -32,8 +35,8 @@ public class Event {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @ManyToOne
-    @JoinColumn(name = "category_id")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", nullable = false)
     private EventCategory category;
 
     private LocalDateTime startAt;
@@ -45,11 +48,15 @@ public class Event {
     private Double latitude;
     private Double longitude;
 
+    @Column(nullable = false)
     private Integer capacity;
+
     @Builder.Default
+    @Column(name = "booked_seats", nullable = false)
     private Integer bookedSeats = 0;
 
     @Builder.Default
+    @Column(nullable = false)
     private Double price = 0.0;
 
     @Enumerated(EnumType.STRING)
@@ -64,8 +71,40 @@ public class Event {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "event")
-    @JsonManagedReference("event-reservation")
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     @Builder.Default
     private List<EventReservation> reservations = new ArrayList<>();
+
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference("event-media")
+    @Builder.Default
+    private List<EventMedia> media = new ArrayList<>();
+
+    @PrePersist
+    @PreUpdate
+    private void normalizeAndValidate() {
+        if (price == null) {
+            price = 0.0;
+        }
+        if (bookedSeats == null) {
+            bookedSeats = 0;
+        }
+        if (capacity == null) {
+            capacity = 0;
+        }
+
+        if (price < 0) {
+            throw new IllegalArgumentException("Event price must be non-negative");
+        }
+        if (capacity < 0) {
+            throw new IllegalArgumentException("Event capacity must be non-negative");
+        }
+        if (bookedSeats < 0) {
+            throw new IllegalArgumentException("Event bookedSeats must be non-negative");
+        }
+        if (bookedSeats > capacity) {
+            throw new IllegalArgumentException("Event bookedSeats cannot exceed capacity");
+        }
+    }
 }
