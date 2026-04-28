@@ -57,4 +57,26 @@ public class AiRecommendationClient {
         String url = aiServiceUrl + "/health";
         return restTemplate.getForObject(url, Map.class);
     }
+
+    // ---------------- Host-side per-event predictions ----------------
+
+    public Map<String, Object> fillRatePrediction(Long eventId) {
+        String url = aiServiceUrl + "/host/fill-rate-prediction/" + eventId;
+        return restTemplate.getForObject(url, Map.class);
+    }
+
+    public Map<String, Object> revenueForecast(Long eventId) {
+        String url = aiServiceUrl + "/host/revenue-forecast/" + eventId;
+        return restTemplate.getForObject(url, Map.class);
+    }
+
+    public Map<String, Object> ratingPrediction(Long eventId) {
+        String url = aiServiceUrl + "/host/rating-prediction/" + eventId;
+        return restTemplate.getForObject(url, Map.class);
+    }
+
+    public Map<String, Object> actionableTips(Long eventId) {
+        String url = aiServiceUrl + "/host/actionable-tips/" + eventId;
+        return restTemplate.getForObject(url, Map.class);
+    }
 }

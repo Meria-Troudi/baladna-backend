@@ -79,10 +79,12 @@ def build_features(conn, user_id):
     # Candidate filtering - very important!
     if not events.empty:
         user = get_user_features(conn, user_id)
-        events = events[
-            (events["price"] <= user["user_avg_price_paid"] * 2) &  # Not >2x avg paid
-            (pd.to_datetime(events["start_at"]) > datetime.now())   # Upcoming only
-        ]
+        # Cold-start: if the user has never paid for an event yet, skip the price
+        # ceiling (otherwise the filter becomes price <= 0 and we'd recommend
+        # nothing). For returning users, cap at 2x their average paid price.
+        if user["user_avg_price_paid"] > 0:
+            events = events[events["price"] <= user["user_avg_price_paid"] * 2]
+        events = events[pd.to_datetime(events["start_at"]) > datetime.now()]
         
         # Filter out events user already reserved
         reserved_q = """
@@ -249,8 +251,21 @@ def actionable_tips(event_id):
     return jsonify({"eventId": event_id, "tips": tips})
 
 # ---------------------- SENTIMENT ANALYSIS ----------------------
-from transformers import pipeline  # pip install transformers torch
-sentiment_pipeline = pipeline("sentiment-analysis", model="cardiffnlp/twitter-roberta-base-sentiment", device=-1)
+# Lazy-loaded so the service can boot without the heavy transformers/torch
+# dependency installed. The endpoint only fails (with a clear message) if
+# someone actually calls /sentiment/analyze without those packages available.
+_sentiment_pipeline = None
+
+def _get_sentiment_pipeline():
+    global _sentiment_pipeline
+    if _sentiment_pipeline is None:
+        from transformers import pipeline  # pip install transformers torch
+        _sentiment_pipeline = pipeline(
+            "sentiment-analysis",
+            model="cardiffnlp/twitter-roberta-base-sentiment",
+            device=-1,
+        )
+    return _sentiment_pipeline
 
 @app.route("/sentiment/analyze", methods=["POST"])
 def analyze_sentiment():
@@ -258,7 +273,11 @@ def analyze_sentiment():
     text = data.get("text", "")
     if not text:
         return jsonify({"error": "No text provided"}), 400
-    result = sentiment_pipeline(text[:512])[0]
+    try:
+        pipe = _get_sentiment_pipeline()
+    except Exception as e:
+        return jsonify({"error": f"sentiment model unavailable: {e}"}), 503
+    result = pipe(text[:512])[0]
     label = result["label"]  # LABEL_0 (negative), LABEL_1 (neutral), LABEL_2 (positive)
     sentiment_score = {"LABEL_0": -1, "LABEL_1": 0, "LABEL_2": 1}[label]
     return jsonify({"sentiment": label, "score": sentiment_score, "confidence": result["score"]})
@@ -268,12 +287,44 @@ def analyze_sentiment():
 def trending():
     conn = get_conn()
     df = pd.read_sql("""
-        SELECT e.id AS eventId, e.title, e.category, COUNT(er.id) AS bookings
-        FROM event e LEFT JOIN event_reservation er ON er.event_id = e.id AND er.status <> 'CANCELLED'
-        WHERE e.status = 'UPCOMING' GROUP BY e.id, e.title, e.category
-        ORDER BY bookings DESC LIMIT 10
+        SELECT
+            e.id            AS id,
+            e.id            AS eventId,
+            e.title         AS title,
+            e.description   AS description,
+            e.category      AS category,
+            e.price         AS price,
+            e.capacity      AS capacity,
+            e.booked_seats  AS bookedSeats,
+            e.start_at      AS startAt,
+            e.end_at        AS endAt,
+            e.location      AS location,
+            e.latitude      AS latitude,
+            e.longitude     AS longitude,
+            e.status        AS status,
+            COUNT(er.id)    AS bookings
+        FROM event e
+        LEFT JOIN event_reservation er
+               ON er.event_id = e.id AND er.status <> 'CANCELLED'
+        WHERE e.status = 'UPCOMING'
+        GROUP BY e.id, e.title, e.description, e.category, e.price, e.capacity,
+                 e.booked_seats, e.start_at, e.end_at, e.location, e.latitude,
+                 e.longitude, e.status
+        ORDER BY bookings DESC, e.start_at ASC
+        LIMIT 12
     """, conn)
     conn.close()
+    # pandas serializes datetimes/Decimals oddly via to_dict; coerce to JSON-safe types.
+    if not df.empty:
+        for col in ("startAt", "endAt"):
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col]).dt.strftime("%Y-%m-%dT%H:%M:%S")
+        for col in ("price", "latitude", "longitude"):
+            if col in df.columns:
+                df[col] = df[col].astype(float)
+        for col in ("id", "eventId", "capacity", "bookedSeats", "bookings"):
+            if col in df.columns:
+                df[col] = df[col].fillna(0).astype(int)
     return jsonify(df.to_dict(orient="records"))
 
 @app.route("/health")

@@ -54,8 +54,8 @@ public class ModerationService {
     private final RestClient restClient;
 
     public ModerationService(
-            @Value("${ollama.base-url:http://localhost:11434}") String baseUrl,
-            @Value("${ollama.model:gemma3:1b}") String model,
+            @Value("${app.ai.ollama-base-url:http://127.0.0.1:11434}") String baseUrl,
+            @Value("${app.ai.ollama-model:qwen2.5:7b-instruct}") String model,
             @Value("${moderation.enabled:true}") boolean enabled,
             @Value("${ollama.timeout-ms:12000}") int timeoutMs) {
         this.model = model;

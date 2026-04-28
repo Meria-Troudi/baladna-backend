@@ -46,7 +46,10 @@ public class RecommendationController {
             List<Map<String, Object>> recommendations = aiClient.recommend(userId);
             return ResponseEntity.ok(recommendations);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            // AI microservice may not be running in dev; degrade gracefully so the
+            // tourist landing page just hides the "Recommended for you" section
+            // instead of showing a 500 in the browser console.
+            return ResponseEntity.ok(List.of());
         }
     }
 
@@ -70,6 +73,55 @@ public ResponseEntity<Map<String, Object>> explainForEvent(Authentication authen
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() {
-        return ResponseEntity.ok(aiClient.health());
+        try {
+            Map<String, Object> body = aiClient.health();
+            body.put("available", true);
+            body.put("modelName", "LGBMRanker");
+            return ResponseEntity.ok(body);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                    "available", false,
+                    "modelName", "LGBMRanker",
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    // ---------------- Host AI insights (per-event predictions) ----------------
+
+    @GetMapping("/host/fill-rate/{eventId}")
+    public ResponseEntity<Map<String, Object>> fillRate(@PathVariable Long eventId) {
+        try {
+            return ResponseEntity.ok(aiClient.fillRatePrediction(eventId));
+        } catch (Exception e) {
+            return ResponseEntity.status(503).body(Map.of("error", "AI service unavailable"));
+        }
+    }
+
+    @GetMapping("/host/revenue-forecast/{eventId}")
+    public ResponseEntity<Map<String, Object>> revenueForecast(@PathVariable Long eventId) {
+        try {
+            return ResponseEntity.ok(aiClient.revenueForecast(eventId));
+        } catch (Exception e) {
+            return ResponseEntity.status(503).body(Map.of("error", "AI service unavailable"));
+        }
+    }
+
+    @GetMapping("/host/rating-prediction/{eventId}")
+    public ResponseEntity<Map<String, Object>> ratingPrediction(@PathVariable Long eventId) {
+        try {
+            return ResponseEntity.ok(aiClient.ratingPrediction(eventId));
+        } catch (Exception e) {
+            return ResponseEntity.status(503).body(Map.of("error", "AI service unavailable"));
+        }
+    }
+
+    @GetMapping("/host/tips/{eventId}")
+    public ResponseEntity<Map<String, Object>> actionableTips(@PathVariable Long eventId) {
+        try {
+            return ResponseEntity.ok(aiClient.actionableTips(eventId));
+        } catch (Exception e) {
+            return ResponseEntity.status(503).body(Map.of("error", "AI service unavailable"));
+        }
     }
 }
