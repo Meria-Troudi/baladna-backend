@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class StripeService {
 
-    @Value("${stripe.api.key}")
+    @Value("${stripe.secret.key}")
     private String secretKey;
 
     @PostConstruct
@@ -23,7 +23,12 @@ public class StripeService {
         PaymentIntentCreateParams params =
                 PaymentIntentCreateParams.builder()
                         .setAmount((long) (amount * 100)) // cents
-                        .setCurrency("usd")
+                        .setCurrency("eur") // match frontend currency expectation
+                        .setAutomaticPaymentMethods(
+                                PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                                        .setEnabled(true)
+                                        .build()
+                        )
                         .putMetadata("reservationId", reservationId.toString())
                         .build();
 
