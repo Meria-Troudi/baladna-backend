@@ -1,0 +1,24 @@
+{
+  "user_favorite_category": [
+    "CULTURE",
+    "MUSIC",
+    "NONE",
+    "OUTDOOR",
+    "SPORT"
+  ],
+  "event_category": [
+    "ART",
+    "CULTURE",
+    "FAMILY",
+    "FESTIVAL",
+    "FOOD",
+    "MUSIC",
+    "NIGHTLIFE",
+    "OTHER",
+    "OUTDOOR",
+    "SPORT",
+    "THEATER",
+    "TOUR",
+    "WORKSHOP"
+  ]
+}
