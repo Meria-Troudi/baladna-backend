@@ -14,16 +14,9 @@ public class AtsService {
         List<String> feedback = new ArrayList<>();
         String cvLower = cvText.toLowerCase();
 
-        // ✅ 1. Compétences requises par le poste (40 pts)
         score += analyzeRequiredSkills(cvLower, interview, feedback);
-
-        // ✅ 2. Expérience (20 pts)
         score += analyzeExperience(cvLower, interview, feedback);
-
-        // ✅ 3. Compétences métier BALADNA/Tourisme (25 pts)
         score += analyzeBaladnaSkills(cvLower, feedback);
-
-        // ✅ 4. Structure du CV (15 pts)
         score += analyzeStructure(cvLower, feedback);
 
         score = Math.min(score, 100);
@@ -35,7 +28,7 @@ public class AtsService {
                 .build();
     }
 
-    // ===== 1. Compétences requises par le poste =====
+    // ===== 1. Required Skills (40 pts) =====
     private int analyzeRequiredSkills(
             String cvLower, Interview interview, List<String> feedback) {
 
@@ -51,17 +44,17 @@ public class AtsService {
         int skillScore = (int) ((double) matched / required.length * 40);
 
         if (matched == required.length) {
-            feedback.add("✅ Toutes les compétences requises sont présentes (" + matched + "/" + required.length + ")");
+            feedback.add("✅ All required skills found (" + matched + "/" + required.length + ")");
         } else if (matched > 0) {
-            feedback.add("⚠️ Compétences partielles : " + matched + "/" + required.length + " trouvées");
+            feedback.add("⚠️ Partial skills match: " + matched + "/" + required.length + " found");
         } else {
-            feedback.add("❌ Aucune compétence requise trouvée");
+            feedback.add("❌ No required skills found in CV");
         }
 
         return skillScore;
     }
 
-    // ===== 2. Expérience =====
+    // ===== 2. Experience (20 pts) =====
     private int analyzeExperience(
             String cvLower, Interview interview, List<String> feedback) {
 
@@ -70,97 +63,97 @@ public class AtsService {
         int yearsFound = extractYearsOfExperience(cvLower);
 
         if (yearsFound >= interview.getExperienceYears()) {
-            feedback.add("✅ Expérience suffisante : " + yearsFound + " ans");
+            feedback.add("✅ Sufficient experience: " + yearsFound + " year(s)");
             return 20;
         } else if (yearsFound > 0) {
-            feedback.add("⚠️ Expérience insuffisante : " + yearsFound + " ans (requis : " + interview.getExperienceYears() + " ans)");
+            feedback.add("⚠️ Insufficient experience: " + yearsFound +
+                    " year(s) found (required: " + interview.getExperienceYears() + ")");
             return 8;
         } else {
-            feedback.add("❌ Aucune expérience détectée");
+            feedback.add("❌ No experience detected in CV");
             return 0;
         }
     }
 
-    // ===== 3. Compétences métier BALADNA =====
+    // ===== 3. BALADNA Tourism Skills (25 pts) =====
     private int analyzeBaladnaSkills(String cvLower, List<String> feedback) {
         int score = 0;
 
-        // 🏨 Hospitalité & Accueil (8 pts)
+        // 🏨 Hospitality & Reception (8 pts)
         List<String> hospitalityKeywords = Arrays.asList(
-                "accueil", "hospitalité", "hospitality", "réception", "reception",
-                "hôtellerie", "hotellerie", "hotel", "hôtel", "service client",
-                "customer service", "guest", "hébergement", "accommodation"
+                "hospitality", "reception", "hotel", "accommodation", "hosting",
+                "guest", "customer service", "front desk", "concierge",
+                "check-in", "check-out", "resort", "lodge", "inn"
         );
         int hospitalityScore = countKeywords(cvLower, hospitalityKeywords);
         if (hospitalityScore >= 3) {
-            feedback.add("✅ Excellentes compétences en hospitalité");
+            feedback.add("✅ Strong hospitality and reception skills");
             score += 8;
         } else if (hospitalityScore >= 1) {
-            feedback.add("⚠️ Quelques compétences en hospitalité");
+            feedback.add("⚠️ Some hospitality experience detected");
             score += 4;
         }
 
-        // 🗺️ Tourisme & Voyage (8 pts)
+        // 🗺️ Tourism & Travel (8 pts)
         List<String> tourismKeywords = Arrays.asList(
-                "tourisme", "tourism", "guide", "voyage", "travel", "excursion",
-                "circuit", "itinéraire", "itinerary", "destinations", "patrimoine",
-                "heritage", "culture", "culturel", "cultural", "site touristique",
-                "monument", "musée", "museum", "découverte", "discovery"
+                "tourism", "tourist", "guide", "travel", "tour", "excursion",
+                "itinerary", "sightseeing", "heritage", "cultural", "culture",
+                "monument", "museum", "historical", "archaeological", "site",
+                "destination", "landmark", "exploration", "discovery"
         );
         int tourismScore = countKeywords(cvLower, tourismKeywords);
         if (tourismScore >= 3) {
-            feedback.add("✅ Excellent profil tourisme/voyage");
+            feedback.add("✅ Strong tourism and travel profile");
             score += 8;
         } else if (tourismScore >= 1) {
-            feedback.add("⚠️ Quelques expériences en tourisme");
+            feedback.add("⚠️ Some tourism experience detected");
             score += 4;
         }
 
-        // 🎨 Artisanat & Culture tunisienne (5 pts)
+        // 🎨 Tunisian Crafts & Culture (5 pts)
         List<String> artisanKeywords = Arrays.asList(
-                "artisanat", "artisan", "crafts", "craft", "poterie", "pottery",
-                "tissage", "weaving", "broderie", "embroidery", "zellige",
-                "medina", "souk", "tunisie", "tunisia", "tunisien", "tunisian",
-                "berbère", "berber", "tradition", "traditionnel", "traditional",
-                "authentique", "authentic", "local", "communauté", "community"
+                "craft", "crafts", "artisan", "handmade", "pottery", "ceramics",
+                "weaving", "embroidery", "zellige", "medina", "souk", "bazaar",
+                "traditional", "authentic", "local", "heritage", "tunisia",
+                "tunisian", "berber", "arabic", "community", "cultural exchange"
         );
         int artisanScore = countKeywords(cvLower, artisanKeywords);
         if (artisanScore >= 2) {
-            feedback.add("✅ Connaissance de l'artisanat et culture tunisienne");
+            feedback.add("✅ Knowledge of Tunisian crafts and culture");
             score += 5;
         } else if (artisanScore >= 1) {
-            feedback.add("⚠️ Quelques connaissances culturelles");
+            feedback.add("⚠️ Some cultural knowledge detected");
             score += 2;
         }
 
-        // 🌍 Langues (4 pts)
+        // 🌍 Languages (4 pts)
         List<String> languageKeywords = Arrays.asList(
-                "arabe", "arabic", "français", "french", "anglais", "english",
-                "bilingue", "bilingual", "multilingue", "multilingual",
-                "allemand", "german", "espagnol", "spanish", "italien", "italian"
+                "arabic", "french", "english", "german", "spanish", "italian",
+                "bilingual", "multilingual", "fluent", "conversational",
+                "native speaker", "language skills", "translation"
         );
         int langScore = countKeywords(cvLower, languageKeywords);
         if (langScore >= 3) {
-            feedback.add("✅ Profil multilingue — atout majeur pour le tourisme");
+            feedback.add("✅ Multilingual profile — major asset for tourism");
             score += 4;
         } else if (langScore >= 1) {
-            feedback.add("⚠️ Compétences linguistiques partielles");
+            feedback.add("⚠️ Some language skills detected");
             score += 2;
         }
 
         return score;
     }
 
-    // ===== 4. Structure du CV =====
+    // ===== 4. CV Structure (15 pts) =====
     private int analyzeStructure(String cvLower, List<String> feedback) {
         int score = 0;
 
         Map<String, String> sections = new LinkedHashMap<>();
-        sections.put("expérience|experience|travail|work|emploi|employment|poste|position", "Expérience professionnelle");
-        sections.put("formation|education|diplôme|diploma|étude|study|université|university|école|school", "Formation");
-        sections.put("compétence|skill|savoir|know|capacité|ability|maîtrise|expertise", "Compétences");
-        sections.put("contact|email|téléphone|phone|tel|adresse|address", "Coordonnées");
-        sections.put("langue|language|bilingue|francais|arabic|anglais", "Langues");
+        sections.put("experience|work|employment|position|job|career|professional", "Work Experience");
+        sections.put("education|degree|diploma|university|college|school|study|formation", "Education");
+        sections.put("skill|skills|competency|expertise|knowledge|ability|proficiency", "Skills");
+        sections.put("contact|email|phone|mobile|address|tel", "Contact Information");
+        sections.put("language|languages|fluent|bilingual|multilingual", "Languages");
 
         for (Map.Entry<String, String> entry : sections.entrySet()) {
             boolean found = Arrays.stream(entry.getKey().split("\\|"))
@@ -168,7 +161,7 @@ public class AtsService {
             if (found) {
                 score += 3;
             } else {
-                feedback.add("⚠️ Section manquante : " + entry.getValue());
+                feedback.add("⚠️ Missing section: " + entry.getValue());
             }
         }
 
@@ -182,11 +175,10 @@ public class AtsService {
 
     private int extractYearsOfExperience(String cvText) {
         String[] patterns = {
-                "(\\d+)\\s*ans?\\s*d.expérience",
                 "(\\d+)\\s*years?\\s*of\\s*experience",
-                "(\\d+)\\s*années?\\s*d.expérience",
-                "(\\d+)\\s*ans?",
-                "(\\d+)\\s*years?"
+                "(\\d+)\\s*years?\\s*experience",
+                "(\\d+)\\+?\\s*years?",
+                "(\\d+)\\s*yrs?"
         };
 
         for (String pattern : patterns) {

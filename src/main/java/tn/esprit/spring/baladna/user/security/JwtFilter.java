@@ -29,9 +29,8 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-
-        // Routes publiques seulement
-        return path.startsWith("/api/auth");
+        return path.startsWith("/api/auth")
+                ;
     }
 
     @Override
@@ -57,7 +56,6 @@ public class JwtFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 User user = userRepo.findByEmail(email).orElseThrow();
-
                 Long userId = jwtService.extractUserId(token);
 
                 String role = user.getRole().name();
@@ -68,6 +66,7 @@ public class JwtFilter extends OncePerRequestFilter {
                                 null,
                                 List.of(new SimpleGrantedAuthority("ROLE_" + role))
                         );
+                authToken.setDetails(userId);
 
                 // Important : garde l'ID user pour les autres services/controllers
                 authToken.setDetails(userId);

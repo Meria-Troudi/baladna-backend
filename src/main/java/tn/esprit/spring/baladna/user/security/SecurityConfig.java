@@ -52,6 +52,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/events/**").permitAll()
                         .requestMatchers("/api/chat/**").permitAll()  // Chat endpoints - includes /info, WebSocket SockJS paths, and all transports. JWT validation happens in WebSocket handshake interceptor
+                       
                         .requestMatchers("/api/itineraries/calendar/auth-url").authenticated()
                         .requestMatchers("/api/itineraries/calendar/oauth/callback").permitAll()  // OAuth callback from Google needs public access
                         .requestMatchers(HttpMethod.POST, "/api/itinerary/recommendations/search").permitAll()
@@ -64,9 +65,13 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/login/oauth2/**",
                                 "/oauth2/**",
-                                "/api/rh/interviews",
-                                "/api/rh/interviews/*",
-                                "/api/rh/apply"
+                                "/api/events/**",
+                                "/api/rh/interviews",        // ✅ public
+                                "/api/rh/interviews/*",      // ✅ public
+                                "/api/rh/apply",
+                                "/uploads/**",
+                                "/uploads/photos/**"
+
                         ).permitAll()
 
                         .requestMatchers(
@@ -145,7 +150,10 @@ public class SecurityConfig {
                                 "/api/categories/**",
                                 "/api/reviews/**"
                         ).permitAll()
-                        
+                        // ✅ Itinerary AI Recommendations
+                      .requestMatchers("/api/itinerary/recommendations/search").permitAll()
+                        .requestMatchers("/api/itinerary/recommendations/similar/**").permitAll()
+                        .requestMatchers("/api/itinerary/recommendations/train/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
 
@@ -166,7 +174,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:4200"));
-        config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS","PATCH"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
